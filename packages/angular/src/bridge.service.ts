@@ -6,6 +6,7 @@ type BridgeMessage =
   | { type: 'session:created'; session: Session }
   | { type: 'annotations:sync'; annotations: Annotation[] }
   | { type: 'annotation:created'; annotation: Annotation }
+  | { type: 'manifest:update'; manifest: Record<string, unknown> }
   | { type: string };
 
 @Injectable()
@@ -48,6 +49,9 @@ export class BridgeService implements OnDestroy {
             ).annotation;
             const current = this.annotations$.getValue();
             this.annotations$.next([...current, annotation]);
+          } else if (data.type === 'manifest:update') {
+            const { manifest } = data as Extract<BridgeMessage, { type: 'manifest:update' }>;
+            (window as unknown as { __NG_ANNOTATE_MANIFEST__?: unknown }).__NG_ANNOTATE_MANIFEST__ = manifest;
           }
         } catch {
           // ignore malformed messages

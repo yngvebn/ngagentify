@@ -59,7 +59,7 @@ export const STORE_PATH = path.join(PROJECT_ROOT, STORE_DIR, 'store.json');
 // ─── Store init ───────────────────────────────────────────────────────────────
 
 export function ensureStore(): void {
-  const dir = path.join(process.cwd(), STORE_DIR);
+  const dir = path.dirname(STORE_PATH);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   if (!fs.existsSync(STORE_PATH)) {
     fs.writeFileSync(STORE_PATH, JSON.stringify(EMPTY_STORE, null, 2), 'utf8');

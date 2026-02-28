@@ -162,6 +162,72 @@ describe('ng-add schematic — addProviders', () => {
   });
 });
 
+describe('ng-add schematic — addProxyConfig', () => {
+  const ANGULAR_JSON = JSON.stringify({
+    projects: {
+      'my-app': {
+        architect: {
+          serve: {
+            builder: '@angular/build:dev-server',
+            options: {},
+          },
+        },
+      },
+    },
+  });
+
+  it('creates proxy.conf.json and updates angular.json', async () => {
+    const tree = makeTree({ 'package.json': BASE_PKG, 'angular.json': ANGULAR_JSON });
+    const result = await runSchematic(tree);
+    expect(result.exists('proxy.conf.json')).toBe(true);
+    expect(result.readText('proxy.conf.json')).toContain('/__annotate');
+    const angular = JSON.parse(result.readText('angular.json')) as Record<string, unknown>;
+    const projects = angular['projects'] as Record<string, Record<string, unknown>>;
+    const serve = (projects['my-app']['architect'] as Record<string, Record<string, unknown>>)['serve'];
+    expect((serve['options'] as Record<string, unknown>)['proxyConfig']).toBe('proxy.conf.json');
+  });
+
+  it('skips proxy.conf.json if already exists', async () => {
+    const original = '{"/__annotate":{"target":"ws://localhost:4201","ws":true}}\n';
+    const tree = makeTree({
+      'package.json': BASE_PKG,
+      'angular.json': ANGULAR_JSON,
+      'proxy.conf.json': original,
+    });
+    const result = await runSchematic(tree);
+    expect(result.readText('proxy.conf.json')).toBe(original);
+  });
+
+  it('skips angular.json proxyConfig if already set', async () => {
+    const withProxy = JSON.stringify({
+      projects: {
+        'my-app': {
+          architect: {
+            serve: {
+              builder: '@angular/build:dev-server',
+              options: { proxyConfig: 'proxy.conf.json' },
+            },
+          },
+        },
+      },
+    });
+    const tree = makeTree({ 'package.json': BASE_PKG, 'angular.json': withProxy });
+    const result = await runSchematic(tree);
+    // Content should be unchanged (same proxyConfig value)
+    const angular = JSON.parse(result.readText('angular.json')) as Record<string, unknown>;
+    const projects = angular['projects'] as Record<string, Record<string, unknown>>;
+    const serve = (projects['my-app']['architect'] as Record<string, Record<string, unknown>>)['serve'];
+    expect((serve['options'] as Record<string, unknown>)['proxyConfig']).toBe('proxy.conf.json');
+  });
+
+  it('skips vite.config.ts setup when angular.json present', async () => {
+    const tree = makeTree({ 'package.json': BASE_PKG, 'angular.json': ANGULAR_JSON });
+    const result = await runSchematic(tree);
+    // Should NOT create vite.config.ts (Angular doesn't load vite plugins)
+    expect(result.exists('vite.config.ts')).toBe(false);
+  });
+});
+
 describe('ng-add schematic — addGitignore', () => {
   it('creates .gitignore with .ng-annotate/ when none exists', async () => {
     const tree = makeTree({ 'package.json': BASE_PKG });

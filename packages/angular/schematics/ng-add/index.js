@@ -38,31 +38,7 @@ const schematics_1 = require("@angular-devkit/schematics");
 const tasks_1 = require("@angular-devkit/schematics/tasks");
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
-/** Insert `newImport` on the line after the last import statement (handles multi-line imports and blank lines between groups). */
-function insertAfterLastImport(content, newImport) {
-    const lines = content.split('\n');
-    let lastImportLine = -1;
-    let inImport = false;
-    for (let i = 0; i < lines.length; i++) {
-        if (/^import\s/.test(lines[i]))
-            inImport = true;
-        if (inImport) {
-            lastImportLine = i;
-            if (lines[i].includes(';'))
-                inImport = false;
-        }
-    }
-    if (lastImportLine < 0)
-        return newImport + '\n' + content;
-    lines.splice(lastImportLine + 1, 0, newImport);
-    return lines.join('\n');
-}
-/** Insert `newProvider` as the first item in the `providers: [...]` array, preserving indentation style. */
-function insertIntoProviders(content, newProvider) {
-    return content.replace(/^(\s*)providers\s*:\s*\[/m, (match, indent) => {
-        return `${indent}providers: [\n${indent}  ${newProvider},`;
-    });
-}
+const helpers_1 = require("./helpers");
 const MIN_ANGULAR_MAJOR = 21;
 function checkAngularVersion() {
     return (tree) => {
@@ -79,8 +55,52 @@ function checkAngularVersion() {
         }
     };
 }
+function addProxyConfig() {
+    return (tree, context) => {
+        // Create proxy.conf.json
+        const proxyPath = 'proxy.conf.json';
+        if (!tree.exists(proxyPath)) {
+            tree.create(proxyPath, JSON.stringify({ '/__annotate': { target: 'ws://localhost:4201', ws: true } }, null, 2) + '\n');
+            context.logger.info('✅ Created proxy.conf.json');
+        }
+        // Update angular.json serve options
+        const angularJsonPath = 'angular.json';
+        if (!tree.exists(angularJsonPath)) {
+            context.logger.warn('⚠️  Could not find angular.json — add proxyConfig manually');
+            return;
+        }
+        const angularJson = JSON.parse(tree.read(angularJsonPath).toString('utf-8'));
+        const projects = angularJson['projects'];
+        if (!projects)
+            return;
+        let changed = false;
+        for (const projectName of Object.keys(projects)) {
+            const project = projects[projectName];
+            const architect = project['architect'];
+            if (!architect)
+                continue;
+            const serve = architect['serve'];
+            if (!serve)
+                continue;
+            const options = (serve['options'] ?? {});
+            if (options['proxyConfig'])
+                continue;
+            serve['options'] = { ...options, proxyConfig: 'proxy.conf.json' };
+            changed = true;
+            context.logger.info(`✅ Added proxyConfig to angular.json (${projectName})`);
+        }
+        if (changed) {
+            tree.overwrite(angularJsonPath, JSON.stringify(angularJson, null, 2) + '\n');
+        }
+    };
+}
 function addVitePlugin() {
     return (tree, context) => {
+        // Angular CLI does not load vite.config.ts plugins — skip for Angular projects
+        if (tree.exists('angular.json')) {
+            context.logger.info('Angular project detected — skipping vite.config.ts setup (using proxy instead).');
+            return;
+        }
         const candidates = ['vite.config.ts', 'vite.config.js', 'vite.config.mts'];
         const viteConfigPath = candidates.find((p) => tree.exists(p));
         if (!viteConfigPath) {
@@ -94,7 +114,7 @@ function addVitePlugin() {
             context.logger.info('@ng-annotate/vite-plugin vite plugin already present, skipping.');
             return;
         }
-        content = insertAfterLastImport(content, "import { ngAnnotateMcp } from '@ng-annotate/vite-plugin';");
+        content = (0, helpers_1.insertAfterLastImport)(content, "import { ngAnnotateMcp } from '@ng-annotate/vite-plugin';");
         if (/plugins\s*:\s*\[/.test(content)) {
             // Existing plugins array — prepend into it
             content = content.replace(/plugins\s*:\s*\[/, 'plugins: [...ngAnnotateMcp(), ');
@@ -126,8 +146,8 @@ function addProviders() {
             context.logger.info('provideNgAnnotate already present, skipping.');
             return;
         }
-        content = insertAfterLastImport(content, "import { provideNgAnnotate } from '@ng-annotate/angular';");
-        content = insertIntoProviders(content, 'provideNgAnnotate()');
+        content = (0, helpers_1.insertAfterLastImport)(content, "import { provideNgAnnotate } from '@ng-annotate/angular';");
+        content = (0, helpers_1.insertIntoProviders)(content, 'provideNgAnnotate()');
         tree.overwrite(appConfigPath, content);
         context.logger.info(`✅ Added provideNgAnnotate() to ${appConfigPath}`);
     };
@@ -290,6 +310,7 @@ function default_1(options) {
         return (0, schematics_1.chain)([
             checkAngularVersion(),
             addDevDependency(),
+            addProxyConfig(),
             addVitePlugin(),
             addProviders(),
             addMcpConfig(options),

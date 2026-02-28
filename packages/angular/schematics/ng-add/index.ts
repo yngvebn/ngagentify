@@ -33,8 +33,63 @@ function checkAngularVersion(): Rule {
   };
 }
 
+function addProxyConfig(): Rule {
+  return (tree: Tree, context: SchematicContext) => {
+    // Create proxy.conf.json
+    const proxyPath = 'proxy.conf.json';
+    if (!tree.exists(proxyPath)) {
+      tree.create(
+        proxyPath,
+        JSON.stringify({ '/__annotate': { target: 'ws://localhost:4201', ws: true } }, null, 2) + '\n',
+      );
+      context.logger.info('✅ Created proxy.conf.json');
+    }
+
+    // Update angular.json serve options
+    const angularJsonPath = 'angular.json';
+    if (!tree.exists(angularJsonPath)) {
+      context.logger.warn('⚠️  Could not find angular.json — add proxyConfig manually');
+      return;
+    }
+
+    const angularJson = JSON.parse(tree.read(angularJsonPath)!.toString('utf-8')) as Record<
+      string,
+      unknown
+    >;
+    const projects = angularJson['projects'] as Record<string, unknown> | undefined;
+    if (!projects) return;
+
+    let changed = false;
+    for (const projectName of Object.keys(projects)) {
+      const project = projects[projectName] as Record<string, unknown>;
+      const architect = project['architect'] as Record<string, unknown> | undefined;
+      if (!architect) continue;
+
+      const serve = architect['serve'] as Record<string, unknown> | undefined;
+      if (!serve) continue;
+
+      const options = (serve['options'] ?? {}) as Record<string, unknown>;
+      if (options['proxyConfig']) continue;
+
+      serve['options'] = { ...options, proxyConfig: 'proxy.conf.json' };
+      changed = true;
+      context.logger.info(`✅ Added proxyConfig to angular.json (${projectName})`);
+    }
+
+    if (changed) {
+      tree.overwrite(angularJsonPath, JSON.stringify(angularJson, null, 2) + '\n');
+    }
+  };
+}
+
 function addVitePlugin(): Rule {
   return (tree: Tree, context: SchematicContext) => {
+    // Angular CLI does not load vite.config.ts plugins — skip for Angular projects
+    if (tree.exists('angular.json')) {
+      context.logger.info('Angular project detected — skipping vite.config.ts setup (using proxy instead).');
+      return;
+    }
+
     const candidates = ['vite.config.ts', 'vite.config.js', 'vite.config.mts'];
     const viteConfigPath = candidates.find((p) => tree.exists(p));
 
@@ -297,6 +352,7 @@ export default function (options: Options): Rule {
     return chain([
       checkAngularVersion(),
       addDevDependency(),
+      addProxyConfig(),
       addVitePlugin(),
       addProviders(),
       addMcpConfig(options),

@@ -13,10 +13,10 @@ export function ngAnnotateMcp(): Plugin[] {
 
     configResolved(config) {
       setProjectRoot(config.root);
-      config.logger.info(`[ng-annotate] store → ${getStorePath()}`);
     },
 
     configureServer(server) {
+      console.log(`[ng-annotate] store → ${getStorePath()}`);
       createWsHandler(server);
     },
   };
