@@ -1,5 +1,30 @@
-import { Rule, SchematicContext, Tree, chain } from '@angular-devkit/schematics';
+import { Rule, SchematicContext, Tree, chain, SchematicsException } from '@angular-devkit/schematics';
 import { NodePackageInstallTask } from '@angular-devkit/schematics/tasks';
+
+const MIN_ANGULAR_MAJOR = 21;
+
+function checkAngularVersion(): Rule {
+  return (tree: Tree) => {
+    const pkgPath = 'package.json';
+    if (!tree.exists(pkgPath)) return;
+
+    const pkg = JSON.parse(tree.read(pkgPath)!.toString('utf-8')) as Record<
+      string,
+      Record<string, string>
+    >;
+    const version: string =
+      (pkg['dependencies']?.['@angular/core'] ?? pkg['devDependencies']?.['@angular/core']) || '';
+    const match = version.match(/(\d+)/);
+    const major = match ? parseInt(match[1], 10) : 0;
+
+    if (major > 0 && major < MIN_ANGULAR_MAJOR) {
+      throw new SchematicsException(
+        `@ng-annotate/angular requires Angular ${MIN_ANGULAR_MAJOR} or higher. ` +
+          `Found: ${version}`,
+      );
+    }
+  };
+}
 
 function addVitePlugin(): Rule {
   return (tree: Tree, context: SchematicContext) => {
@@ -119,7 +144,7 @@ function addDevDependency(): Rule {
 export default function (): Rule {
   return (tree: Tree, context: SchematicContext) => {
     context.logger.info('Setting up @ng-annotate/vite-plugin...');
-    return chain([addDevDependency(), addVitePlugin(), addProviders(), addMcpConfig()])(
+    return chain([checkAngularVersion(), addDevDependency(), addVitePlugin(), addProviders(), addMcpConfig()])(
       tree,
       context,
     );
