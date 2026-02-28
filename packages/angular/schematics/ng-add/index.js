@@ -96,6 +96,7 @@ function addMcpConfig() {
                         type: 'stdio',
                         command: 'npx',
                         args: ['@ng-annotate/mcp-server'],
+                        cwd: '${workspaceFolder}',
                     },
                 },
             };

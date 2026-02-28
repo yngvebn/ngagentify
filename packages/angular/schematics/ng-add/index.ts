@@ -127,6 +127,7 @@ function addMcpConfig(): Rule {
             type: 'stdio',
             command: 'npx',
             args: ['@ng-annotate/mcp-server'],
+            cwd: '${workspaceFolder}',
           },
         },
       };
