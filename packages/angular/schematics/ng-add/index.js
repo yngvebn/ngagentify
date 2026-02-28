@@ -268,22 +268,48 @@ function addDevDependency() {
         }
     };
 }
+/** Append a gitignore entry to a file on the real filesystem (outside the schematic Tree). */
+function addEntryToGitignoreOutsideTree(absPath, entry, context) {
+    if (fs.existsSync(absPath)) {
+        const content = fs.readFileSync(absPath, 'utf-8');
+        if (content.includes(entry)) {
+            context.logger.info(`${entry} already in root .gitignore, skipping.`);
+            return;
+        }
+        fs.writeFileSync(absPath, content.trimEnd() + '\n\n' + entry + '\n', 'utf-8');
+        context.logger.info(`✅ Added ${entry} to root .gitignore`);
+    }
+    else {
+        fs.writeFileSync(absPath, entry + '\n', 'utf-8');
+        context.logger.info(`✅ Created .gitignore with ${entry} at repository root`);
+    }
+}
 function addGitignore() {
     return (tree, context) => {
         const entry = '.ng-annotate/';
+        const projectRoot = process.cwd();
+        const gitRoot = findGitRoot(projectRoot);
+        const isSubproject = gitRoot !== null && path.resolve(gitRoot) !== path.resolve(projectRoot);
+        // Always update the Angular project's .gitignore via the Tree (supports --dry-run).
         const gitignorePath = '.gitignore';
         if (!tree.exists(gitignorePath)) {
             tree.create(gitignorePath, entry + '\n');
             context.logger.info('✅ Created .gitignore with .ng-annotate/');
-            return;
         }
-        const content = tree.read(gitignorePath).toString('utf-8');
-        if (content.includes(entry)) {
-            context.logger.info('.ng-annotate/ already in .gitignore, skipping.');
-            return;
+        else {
+            const content = tree.read(gitignorePath).toString('utf-8');
+            if (content.includes(entry)) {
+                context.logger.info('.ng-annotate/ already in .gitignore, skipping.');
+            }
+            else {
+                tree.overwrite(gitignorePath, content.trimEnd() + '\n\n' + entry + '\n');
+                context.logger.info('✅ Added .ng-annotate/ to .gitignore');
+            }
         }
-        tree.overwrite(gitignorePath, content.trimEnd() + '\n\n' + entry + '\n');
-        context.logger.info('✅ Added .ng-annotate/ to .gitignore');
+        // For monorepos: the store lives at the git root, so also add the entry there.
+        if (isSubproject) {
+            addEntryToGitignoreOutsideTree(path.join(gitRoot, '.gitignore'), entry, context);
+        }
     };
 }
 function default_1(options) {
