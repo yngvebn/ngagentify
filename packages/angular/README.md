@@ -50,6 +50,30 @@ export const appConfig: ApplicationConfig = {
 
 No template changes needed — the overlay is injected automatically.
 
+## Usage
+
+Once installed:
+
+**1. Start the dev server**
+```bash
+npm run dev
+```
+
+**2. Start the agent polling loop**
+
+Tell your agent to watch for annotations. In Claude Code:
+```
+/mcp ng-annotate start-polling
+```
+
+The agent will drain any queued annotations and then enter a `watch_annotations` loop — processing browser annotations as they arrive and editing files automatically. It runs until you end the conversation.
+
+> The `start-polling` prompt works with any MCP-compatible AI editor.
+
+**3. Annotate in the browser**
+
+Open `localhost:4200`, press `Alt+Shift+A` to enter inspect mode, click a component, type your instruction, and submit. The agent picks it up within seconds, edits the file, and the browser hot-reloads.
+
 ## Keyboard shortcuts
 
 | Shortcut | Action |
