@@ -36,11 +36,9 @@ function addVitePlugin(): Rule {
     const viteConfigPath = candidates.find((p) => tree.exists(p));
 
     if (!viteConfigPath) {
-      context.logger.warn(
-        '⚠️  Could not find vite.config.ts — add the plugin manually:\n' +
-          "    import { ngAnnotateMcp } from '@ng-annotate/vite-plugin';\n" +
-          '    plugins: [...ngAnnotateMcp()]',
-      );
+      const created = `import { defineConfig } from 'vite';\nimport { ngAnnotateMcp } from '@ng-annotate/vite-plugin';\n\nexport default defineConfig({\n  plugins: [...ngAnnotateMcp()],\n});\n`;
+      tree.create('vite.config.ts', created);
+      context.logger.info('✅ Created vite.config.ts with ngAnnotateMcp()');
       return;
     }
 
