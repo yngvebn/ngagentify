@@ -1,0 +1,40 @@
+{
+  "name": "ng-annotate-mcp",
+  "private": true,
+  "workspaces": [
+    "packages/vite-plugin",
+    "packages/mcp-server",
+    "packages/angular",
+    "demo"
+  ],
+  "scripts": {
+    "dev": "bash scripts/dev.sh",
+    "build": "bash scripts/build.sh",
+    "build:watch": "bash scripts/build-watch.sh",
+    "clean": "bash scripts/clean.sh",
+    "demo:reset": "bash scripts/demo-reset.sh",
+    "lint": "npm run lint --workspaces --if-present && (cd demo && ng lint)",
+    "lint:fix": "npm run lint:fix --workspaces --if-present && (cd demo && ng lint --fix)",
+    "test": "bash scripts/test.sh",
+    "test:e2e": "bash scripts/test-e2e.sh"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "concurrently": "^9.0.0",
+    "eslint": "^9.0.0",
+    "eslint-plugin-import-x": "^4.16.1",
+    "eslint-plugin-unicorn": "^63.0.0",
+    "lint-staged": "^16.2.7",
+    "simple-git-hooks": "^2.13.1",
+    "tsx": "^4.0.0",
+    "typescript-eslint": "^8.56.1"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "npx lint-staged --concurrent false"
+  },
+  "lint-staged": {
+    "packages/**/*.ts": "eslint --no-warn-ignored --max-warnings=0",
+    "demo/src/**/*.ts": "eslint --config demo/eslint.config.mjs --no-warn-ignored --max-warnings=0",
+    "demo/src/**/*.html": "bash -c 'cd demo && ng lint'"
+  }
+}

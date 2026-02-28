@@ -1,0 +1,50 @@
+.stats-panel {
+  h3 {
+    margin-bottom: 0.75rem;
+    font-size: 1rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #555;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+
+    thead tr {
+      background-color: #f0f4ff;
+
+      th {
+        padding: 0.5rem 0.75rem;
+        text-align: left;
+        font-weight: 600;
+        color: #334;
+        border-bottom: 2px solid #c8d0e8;
+      }
+    }
+
+    tbody tr {
+      border-bottom: 1px solid #e8eaf0;
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      &:hover {
+        background-color: #f7f9ff;
+      }
+
+      td {
+        padding: 0.45rem 0.75rem;
+        color: #444;
+
+        &:last-child {
+          font-weight: 500;
+          color: #2c5fdb;
+        }
+      }
+    }
+  }
+}

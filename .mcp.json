@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "ng-annotate": {
+      "command": "npx",
+      "args": ["tsx", "packages/mcp-server/src/index.ts"],
+      "cwd": "${workspaceFolder}"
+    }
+  }
+}

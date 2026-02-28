@@ -1,0 +1,14 @@
+<div class="profile-card">
+  <h3>{{ name() }}</h3>
+  <p>Age: {{ age() }}</p>
+  <p>Tags:
+    @for (tag of tags(); track tag) {
+      <span>{{ tag }} </span>
+    }
+  </p>
+  <ul>
+    @for (entry of metadata() | keyvalue; track entry.key) {
+      <li>{{ entry.key }}: {{ entry.value }}</li>
+    }
+  </ul>
+</div>

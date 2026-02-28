@@ -1,0 +1,6 @@
+{
+  "/__annotate": {
+    "target": "ws://localhost:4201",
+    "ws": true
+  }
+}

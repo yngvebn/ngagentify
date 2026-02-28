@@ -1,0 +1,6 @@
+<div class="task-list">
+  <h4>Task List</h4>
+  @for (item of items; track item) {
+    <app-task-item [label]="item"></app-task-item>
+  }
+</div>

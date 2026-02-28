@@ -137,3 +137,15 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Build artifacts
+packages/*/dist/
+demo/dist/
+
+# ng-annotate runtime files
+.ng-annotate/
+demo/.ng-annotate/
+
+# Playwright test output
+demo/test-results/
+demo/playwright-report/

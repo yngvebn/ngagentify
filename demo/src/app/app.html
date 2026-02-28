@@ -1,0 +1,45 @@
+<main>
+  <h1>ng-annotate-mcp Demo</h1>
+
+  <div class="grid">
+  <section>
+    <h2>Simple Card (no inputs)</h2>
+    <app-simple-card></app-simple-card>
+  </section>
+
+  <section>
+    <h2>Profile Card (with @Input() properties)</h2>
+    <app-profile-card
+      [name]="'Alice'"
+      [age]="30"
+      [tags]="['admin', 'user']"
+      [metadata]="{ role: 'admin' }"
+    ></app-profile-card>
+  </section>
+
+  <section>
+    <h2>Nested Component Tree (4 levels)</h2>
+    <app-page-layout></app-page-layout>
+  </section>
+
+  <section>
+    <h2>Stats Panel (external template)</h2>
+    <app-stats-panel></app-stats-panel>
+  </section>
+
+  <section>
+    <h2>Highlight Box (attribute selector)</h2>
+    <div appHighlightBox>Highlighted content</div>
+  </section>
+
+  <section>
+    <h2>Task List (list rendering)</h2>
+    <app-task-list [items]="['Task A', 'Task B', 'Task C']"></app-task-list>
+  </section>
+
+  <section>
+    <h2>Demo Card</h2>
+    <app-broken-card></app-broken-card>
+  </section>
+  </div>
+</main>
