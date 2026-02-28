@@ -1,6 +1,6 @@
 {
   "name": "@ng-annotate/angular",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "schematics": "./schematics/collection.json",
   "description": "Angular library for ng-annotate-mcp — browser overlay for annotating components and routing instructions to an AI agent",
   "keywords": [
@@ -29,7 +29,9 @@
       "types": "./dist/types/ng-annotate-angular.d.ts",
       "default": "./dist/fesm2022/ng-annotate-angular.mjs"
     },
-    "./package.json": { "default": "./package.json" }
+    "./package.json": {
+      "default": "./package.json"
+    }
   },
   "scripts": {
     "build": "ng-packagr -p ng-package.json && npm run build:schematics",
