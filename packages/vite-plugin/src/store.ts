@@ -50,12 +50,13 @@ const EMPTY_STORE: StoreData = { sessions: {}, annotations: {} };
 // ─── File paths ───────────────────────────────────────────────────────────────
 
 export const STORE_DIR = '.ng-annotate';
-export const STORE_PATH = path.join(process.cwd(), STORE_DIR, 'store.json');
+const PROJECT_ROOT = process.env.NG_ANNOTATE_PROJECT_ROOT ?? process.cwd();
+export const STORE_PATH = path.join(PROJECT_ROOT, STORE_DIR, 'store.json');
 
 // ─── Store init ───────────────────────────────────────────────────────────────
 
 export function ensureStore(): void {
-  const dir = path.join(process.cwd(), STORE_DIR);
+  const dir = path.join(PROJECT_ROOT, STORE_DIR);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   if (!fs.existsSync(STORE_PATH)) {
     fs.writeFileSync(STORE_PATH, JSON.stringify(EMPTY_STORE, null, 2), 'utf8');
