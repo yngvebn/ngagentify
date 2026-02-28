@@ -2,6 +2,8 @@
 
 MCP server for [ng-annotate-mcp](https://github.com/yngvebn/ngagentify) — a dev-only Angular toolchain addon that lets you annotate components in the browser and have an AI agent (Claude) act on those annotations in real time.
 
+> Heavily inspired by [agentation.dev](https://agentation.dev/) — check it out for the original concept.
+
 ## What this server does
 
 Exposes MCP tools that an AI agent uses to read and act on browser annotations:

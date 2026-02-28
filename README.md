@@ -2,6 +2,8 @@
 
 A dev-only Angular toolchain addon that lets you annotate components directly in the browser and have an AI agent (Claude) act on those annotations in real time.
 
+> Heavily inspired by [agentation.dev](https://agentation.dev/) — check it out for the original concept.
+
 ## How it works
 
 1. Press `Alt+Shift+A` in the browser to enter inspect mode

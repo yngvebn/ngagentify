@@ -2,6 +2,8 @@
 
 Vite plugin for [ng-annotate-mcp](https://github.com/yngvebn/ngagentify) — a dev-only toolchain addon that lets you annotate components in the browser and have an AI agent act on those annotations in real time.
 
+> Heavily inspired by [agentation.dev](https://agentation.dev/) — check it out for the original concept.
+
 > **Angular CLI users:** you don't need this package. `@ng-annotate/angular` ships its own custom `dev-server` builder that handles everything. This plugin is for other Vite-based projects (Vue, Svelte, plain Vite, etc.).
 
 ## What this plugin does
