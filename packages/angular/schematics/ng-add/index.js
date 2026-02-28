@@ -71,20 +71,16 @@ function addProviders() {
 }
 function addMcpConfig() {
     return (tree, context) => {
-        // The project root at ng-add time — used to build stable absolute paths.
-        // MCP hosts (VS Code Copilot, Claude Code) may spawn the server with a
-        // different cwd, so we bake in the paths rather than relying on cwd.
         const projectRoot = process.cwd().replace(/\\/g, '/');
-        const serverEntry = `${projectRoot}/node_modules/@ng-annotate/mcp-server/dist/index.js`;
         const env = { NG_ANNOTATE_PROJECT_ROOT: projectRoot };
-        // .mcp.json — Claude Code
+        // .mcp.json — Claude Code (needs cmd /c on Windows to invoke npx.cmd)
         if (!tree.exists('.mcp.json')) {
             const isWindows = process.platform === 'win32';
             const mcpConfig = {
                 mcpServers: {
                     'ng-annotate': isWindows
-                        ? { command: 'cmd', args: ['/c', 'node', serverEntry], env }
-                        : { command: 'node', args: [serverEntry], env },
+                        ? { command: 'cmd', args: ['/c', 'npx', '-y', '@ng-annotate/mcp-server'], env }
+                        : { command: 'npx', args: ['-y', '@ng-annotate/mcp-server'], env },
                 },
             };
             tree.create('.mcp.json', JSON.stringify(mcpConfig, null, 2) + '\n');
@@ -93,15 +89,15 @@ function addMcpConfig() {
         else {
             context.logger.info('.mcp.json already exists, skipping.');
         }
-        // .vscode/mcp.json — VS Code Copilot
+        // .vscode/mcp.json — VS Code Copilot (handles npx.cmd natively on Windows)
         const vscodeMcpPath = '.vscode/mcp.json';
         if (!tree.exists(vscodeMcpPath)) {
             const vscodeMcpConfig = {
                 servers: {
                     'ng-annotate': {
                         type: 'stdio',
-                        command: 'node',
-                        args: [serverEntry],
+                        command: 'npx',
+                        args: ['-y', '@ng-annotate/mcp-server'],
                         env,
                     },
                 },

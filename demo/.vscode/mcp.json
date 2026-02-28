@@ -7,8 +7,8 @@
     },
     "ng-annotate": {
       "type": "stdio",
-      "command": "node",
-      "args": ["C:/github/ngagentify/node_modules/@ng-annotate/mcp-server/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "@ng-annotate/mcp-server"],
       "env": {
         "NG_ANNOTATE_PROJECT_ROOT": "C:/github/ngagentify/demo"
       }

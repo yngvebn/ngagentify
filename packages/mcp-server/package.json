@@ -1,16 +1,17 @@
 {
   "name": "@ng-annotate/mcp-server",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "type": "module",
   "bin": {
-    "ng-annotate-mcp": "dist/index.js"
+    "ng-annotate-mcp": "bin/ng-annotate-mcp.js"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/yngvebn/ngagentify"
   },
   "files": [
-    "dist"
+    "dist",
+    "bin"
   ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
