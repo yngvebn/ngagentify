@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "$id": "SchematicsNgAnnotateNgAdd",
+  "title": "ng-annotate ng-add options",
+  "type": "object",
+  "description": "Adds @ng-annotate/angular to an Angular project",
+  "additionalProperties": false,
+  "properties": {
+    "aiTool": {
+      "type": "string",
+      "description": "Which AI tool will use the MCP server?",
+      "enum": ["claude-code", "vscode", "both", "other"],
+      "x-prompt": {
+        "message": "Which AI tool will use the ng-annotate MCP server?",
+        "type": "list",
+        "items": [
+          { "value": "claude-code", "label": "Claude Code (generates .mcp.json)" },
+          { "value": "vscode",      "label": "VS Code Copilot (generates .vscode/mcp.json)" },
+          { "value": "both",        "label": "Both" },
+          { "value": "other",       "label": "Other — show manual config instructions" }
+        ]
+      }
+    }
+  },
+  "required": ["aiTool"]
+}

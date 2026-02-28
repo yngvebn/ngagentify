@@ -3,7 +3,8 @@
   "schematics": {
     "ng-add": {
       "description": "Add ng-annotate-mcp to the Angular project.",
-      "factory": "./ng-add/index"
+      "factory": "./ng-add/index",
+      "schema": "./ng-add/schema.json"
     }
   }
 }

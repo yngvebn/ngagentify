@@ -1,6 +1,6 @@
 {
   "name": "@ng-annotate/angular",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "schematics": "./schematics/collection.json",
   "repository": {
     "type": "git",

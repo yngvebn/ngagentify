@@ -1,6 +1,10 @@
 import { Rule, SchematicContext, Tree, chain, SchematicsException } from '@angular-devkit/schematics';
 import { NodePackageInstallTask } from '@angular-devkit/schematics/tasks';
 
+interface Options {
+  aiTool: 'claude-code' | 'vscode' | 'both' | 'other';
+}
+
 const MIN_ANGULAR_MAJOR = 21;
 
 function checkAngularVersion(): Rule {
@@ -100,44 +104,87 @@ function addProviders(): Rule {
   };
 }
 
-function addMcpConfig(): Rule {
+function addMcpConfig(options: Options): Rule {
   return (tree: Tree, context: SchematicContext) => {
     const projectRoot = process.cwd().replace(/\\/g, '/');
     const env = { NG_ANNOTATE_PROJECT_ROOT: projectRoot };
+    const isWindows = process.platform === 'win32';
+    const { aiTool } = options;
 
-    // .mcp.json — Claude Code (needs cmd /c on Windows to invoke npx.cmd)
-    if (!tree.exists('.mcp.json')) {
-      const isWindows = process.platform === 'win32';
-      const mcpConfig = {
-        mcpServers: {
-          'ng-annotate': isWindows
-            ? { command: 'cmd', args: ['/c', 'npx', '-y', '@ng-annotate/mcp-server'], env }
-            : { command: 'npx', args: ['-y', '@ng-annotate/mcp-server'], env },
-        },
-      };
-      tree.create('.mcp.json', JSON.stringify(mcpConfig, null, 2) + '\n');
-      context.logger.info('✅ Created .mcp.json');
-    } else {
-      context.logger.info('.mcp.json already exists, skipping.');
-    }
-
-    // .vscode/mcp.json — VS Code Copilot (handles npx.cmd natively on Windows)
-    const vscodeMcpPath = '.vscode/mcp.json';
-    if (!tree.exists(vscodeMcpPath)) {
-      const vscodeMcpConfig = {
-        servers: {
-          'ng-annotate': {
-            type: 'stdio',
-            command: 'npx',
-            args: ['-y', '@ng-annotate/mcp-server'],
-            env,
+    if (aiTool === 'other') {
+      const claudeConfig = JSON.stringify(
+        {
+          mcpServers: {
+            'ng-annotate': isWindows
+              ? { command: 'cmd', args: ['/c', 'npx', '-y', '@ng-annotate/mcp-server'], env }
+              : { command: 'npx', args: ['-y', '@ng-annotate/mcp-server'], env },
           },
         },
-      };
-      tree.create(vscodeMcpPath, JSON.stringify(vscodeMcpConfig, null, 2) + '\n');
-      context.logger.info('✅ Created .vscode/mcp.json');
-    } else {
-      context.logger.info('.vscode/mcp.json already exists, skipping.');
+        null,
+        2,
+      );
+      const vscodeConfig = JSON.stringify(
+        {
+          servers: {
+            'ng-annotate': {
+              type: 'stdio',
+              command: 'npx',
+              args: ['-y', '@ng-annotate/mcp-server'],
+              env,
+            },
+          },
+        },
+        null,
+        2,
+      );
+      context.logger.info(
+        '\n⚙️  Manual MCP configuration:\n\n' +
+          'For Claude Code (.mcp.json):\n' +
+          claudeConfig +
+          '\n\n' +
+          'For VS Code Copilot (.vscode/mcp.json):\n' +
+          vscodeConfig +
+          '\n',
+      );
+      return;
+    }
+
+    // .mcp.json — Claude Code (needs cmd /c on Windows to invoke npx.cmd)
+    if (aiTool === 'claude-code' || aiTool === 'both') {
+      if (!tree.exists('.mcp.json')) {
+        const mcpConfig = {
+          mcpServers: {
+            'ng-annotate': isWindows
+              ? { command: 'cmd', args: ['/c', 'npx', '-y', '@ng-annotate/mcp-server'], env }
+              : { command: 'npx', args: ['-y', '@ng-annotate/mcp-server'], env },
+          },
+        };
+        tree.create('.mcp.json', JSON.stringify(mcpConfig, null, 2) + '\n');
+        context.logger.info('✅ Created .mcp.json');
+      } else {
+        context.logger.info('.mcp.json already exists, skipping.');
+      }
+    }
+
+    // .vscode/mcp.json — VS Code Copilot
+    if (aiTool === 'vscode' || aiTool === 'both') {
+      const vscodeMcpPath = '.vscode/mcp.json';
+      if (!tree.exists(vscodeMcpPath)) {
+        const vscodeMcpConfig = {
+          servers: {
+            'ng-annotate': {
+              type: 'stdio',
+              command: 'npx',
+              args: ['-y', '@ng-annotate/mcp-server'],
+              env,
+            },
+          },
+        };
+        tree.create(vscodeMcpPath, JSON.stringify(vscodeMcpConfig, null, 2) + '\n');
+        context.logger.info('✅ Created .vscode/mcp.json');
+      } else {
+        context.logger.info('.vscode/mcp.json already exists, skipping.');
+      }
     }
   };
 }
@@ -174,12 +221,15 @@ function addDevDependency(): Rule {
   };
 }
 
-export default function (): Rule {
+export default function (options: Options): Rule {
   return (tree: Tree, context: SchematicContext) => {
     context.logger.info('Setting up @ng-annotate...');
-    return chain([checkAngularVersion(), addDevDependency(), addVitePlugin(), addProviders(), addMcpConfig()])(
-      tree,
-      context,
-    );
+    return chain([
+      checkAngularVersion(),
+      addDevDependency(),
+      addVitePlugin(),
+      addProviders(),
+      addMcpConfig(options),
+    ])(tree, context);
   };
 }
