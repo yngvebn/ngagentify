@@ -4,12 +4,13 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "outDir": "dist",
+    "rootDir": "src",
     "declaration": true,
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["src", "../../packages/vite-plugin/src/store.ts"],
+  "include": ["src"],
   "exclude": ["node_modules", "dist", "src/**/*.spec.ts", "src/**/*.test.ts"]
 }

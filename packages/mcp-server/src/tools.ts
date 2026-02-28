@@ -1,7 +1,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { store } from '../../vite-plugin/src/store.js';
-import type { Annotation } from '../../vite-plugin/src/store.js';
+import { store } from './store.js';
+import type { Annotation } from './store.js';
 
 // ─── Response helpers ─────────────────────────────────────────────────────────
 

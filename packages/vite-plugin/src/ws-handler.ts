@@ -12,6 +12,11 @@ type MessageType =
   | { type: 'annotation:reply'; id: string; message: string }
   | { type: 'annotation:delete'; id: string };
 
+function safeSend(ws: WebSocket, data: unknown): void {
+  if (ws.readyState !== WebSocket.OPEN) return;
+  ws.send(JSON.stringify(data), (err) => { if (err) { /* connection closed mid-send */ } });
+}
+
 export function createWsHandler(server: ViteDevServer): void {
   const wss = new WebSocketServer({ noServer: true });
   const sessionSockets = new Map<string, WebSocket>();
@@ -33,7 +38,7 @@ export function createWsHandler(server: ViteDevServer): void {
       const session = await store.createSession({ active: true, url: referer });
       const sessionId = session.id;
 
-      ws.send(JSON.stringify({ type: 'session:created', session }));
+      safeSend(ws, { type: 'session:created', session });
       sessionSockets.set(sessionId, ws);
 
       ws.on('message', (raw: Buffer) => {
@@ -50,16 +55,16 @@ export function createWsHandler(server: ViteDevServer): void {
               ...(msg.payload as Parameters<typeof store.createAnnotation>[0]),
               sessionId,
             });
-            ws.send(JSON.stringify({ type: 'annotation:created', annotation }));
+            safeSend(ws, { type: 'annotation:created', annotation });
           } else if (msg.type === 'annotation:reply') {
             const annotation = await store.addReply(msg.id, { author: 'user', message: msg.message });
             if (annotation) {
-              ws.send(JSON.stringify({ type: 'annotation:updated', annotation }));
+              safeSend(ws, { type: 'annotation:updated', annotation });
             }
           } else {
             const annotation = await store.updateAnnotation(msg.id, { status: 'dismissed' });
             if (annotation) {
-              ws.send(JSON.stringify({ type: 'annotation:updated', annotation }));
+              safeSend(ws, { type: 'annotation:updated', annotation });
             }
           }
         })();
@@ -78,7 +83,7 @@ export function createWsHandler(server: ViteDevServer): void {
       for (const [sessionId, ws] of sessionSockets) {
         if (ws.readyState !== WebSocket.OPEN) continue;
         const annotations = await store.listAnnotations(sessionId);
-        ws.send(JSON.stringify({ type: 'annotations:sync', annotations }));
+        safeSend(ws, { type: 'annotations:sync', annotations });
       }
     })();
   }, SYNC_INTERVAL_MS);
