@@ -1,12 +1,15 @@
 {
   "name": "@ng-annotate/angular",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "schematics": "./schematics/collection.json",
   "repository": {
     "type": "git",
     "url": "https://github.com/yngvebn/ngagentify"
   },
-  "files": ["dist", "schematics"],
+  "files": [
+    "dist",
+    "schematics"
+  ],
   "main": "dist/fesm2022/ng-annotate-angular.mjs",
   "module": "dist/fesm2022/ng-annotate-angular.mjs",
   "types": "dist/types/ng-annotate-angular.d.ts",

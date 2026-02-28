@@ -102,22 +102,43 @@ function addProviders(): Rule {
 
 function addMcpConfig(): Rule {
   return (tree: Tree, context: SchematicContext) => {
-    if (tree.exists('.mcp.json')) {
+    // .mcp.json — Claude Code
+    if (!tree.exists('.mcp.json')) {
+      const mcpConfig = {
+        mcpServers: {
+          'ng-annotate': {
+            command: 'node',
+            args: ['./node_modules/@ng-annotate/mcp-server/dist/index.js'],
+          },
+        },
+      };
+      tree.create('.mcp.json', JSON.stringify(mcpConfig, null, 2) + '\n');
+      context.logger.info('✅ Created .mcp.json');
+    } else {
       context.logger.info('.mcp.json already exists, skipping.');
-      return;
     }
 
-    const isWindows = process.platform === 'win32';
-    const mcpConfig = {
-      mcpServers: {
-        'ng-annotate': isWindows
-          ? { command: 'cmd', args: ['/c', 'npx', '-y', '@ng-annotate/mcp-server'] }
-          : { command: 'npx', args: ['-y', '@ng-annotate/mcp-server'] },
-      },
-    };
-
-    tree.create('.mcp.json', JSON.stringify(mcpConfig, null, 2) + '\n');
-    context.logger.info('✅ Created .mcp.json');
+    // .vscode/mcp.json — VS Code Copilot
+    const vscodeMcpPath = '.vscode/mcp.json';
+    if (!tree.exists(vscodeMcpPath)) {
+      const vscodeMcpConfig = {
+        servers: {
+          'ng-annotate': {
+            type: 'stdio',
+            command: 'node',
+            args: ['./node_modules/@ng-annotate/mcp-server/dist/index.js'],
+          },
+        },
+      };
+      if (!tree.exists('.vscode')) {
+        tree.create(vscodeMcpPath, JSON.stringify(vscodeMcpConfig, null, 2) + '\n');
+      } else {
+        tree.create(vscodeMcpPath, JSON.stringify(vscodeMcpConfig, null, 2) + '\n');
+      }
+      context.logger.info('✅ Created .vscode/mcp.json');
+    } else {
+      context.logger.info('.vscode/mcp.json already exists, skipping.');
+    }
   };
 }
 
@@ -132,11 +153,23 @@ function addDevDependency(): Rule {
     >;
     pkg['devDependencies'] ??= {};
 
+    let changed = false;
+
     if (!pkg['devDependencies']['@ng-annotate/vite-plugin']) {
       pkg['devDependencies']['@ng-annotate/vite-plugin'] = 'latest';
+      changed = true;
+      context.logger.info('✅ Added @ng-annotate/vite-plugin to devDependencies');
+    }
+
+    if (!pkg['devDependencies']['@ng-annotate/mcp-server']) {
+      pkg['devDependencies']['@ng-annotate/mcp-server'] = 'latest';
+      changed = true;
+      context.logger.info('✅ Added @ng-annotate/mcp-server to devDependencies');
+    }
+
+    if (changed) {
       tree.overwrite(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
       context.addTask(new NodePackageInstallTask());
-      context.logger.info('✅ Added @ng-annotate/vite-plugin to devDependencies');
     }
   };
 }
