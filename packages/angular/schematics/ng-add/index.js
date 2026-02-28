@@ -1,8 +1,43 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = default_1;
 const schematics_1 = require("@angular-devkit/schematics");
 const tasks_1 = require("@angular-devkit/schematics/tasks");
+const fs = __importStar(require("fs"));
+const path = __importStar(require("path"));
 /** Insert `newImport` on the line after the last import statement (handles multi-line imports and blank lines between groups). */
 function insertAfterLastImport(content, newImport) {
     const lines = content.split('\n');
@@ -90,12 +125,43 @@ function addProviders() {
         context.logger.info(`✅ Added provideNgAnnotate() to ${appConfigPath}`);
     };
 }
+/** Walk up from startDir until we find a .git folder; returns that directory or null. */
+function findGitRoot(startDir) {
+    let dir = path.resolve(startDir);
+    while (true) {
+        if (fs.existsSync(path.join(dir, '.git')))
+            return dir;
+        const parent = path.dirname(dir);
+        if (parent === dir)
+            return null;
+        dir = parent;
+    }
+}
+/**
+ * Write a config file outside the schematic Tree (e.g. to a parent git root).
+ * Uses fs directly — intentionally bypasses Tree so it works for out-of-project paths.
+ */
+function writeOutsideTree(absPath, content, context) {
+    const dir = path.dirname(absPath);
+    if (!fs.existsSync(dir))
+        fs.mkdirSync(dir, { recursive: true });
+    if (fs.existsSync(absPath)) {
+        context.logger.info(`${path.basename(absPath)} already exists at workspace root, skipping.`);
+        return;
+    }
+    fs.writeFileSync(absPath, content, 'utf-8');
+    context.logger.info(`✅ Created ${path.basename(absPath)} at workspace root (${dir})`);
+}
 function addMcpConfig(options) {
     return (tree, context) => {
-        const projectRoot = process.cwd().replace(/\\/g, '/');
-        const env = { NG_ANNOTATE_PROJECT_ROOT: projectRoot };
+        const projectRoot = process.cwd();
+        const env = { NG_ANNOTATE_PROJECT_ROOT: projectRoot.replace(/\\/g, '/') };
         const isWindows = process.platform === 'win32';
         const { aiTool } = options;
+        // Detect monorepo: if git root is a parent of the Angular project, VS Code is likely
+        // opened there — write configs to both the project folder and the git root.
+        const gitRoot = findGitRoot(projectRoot);
+        const isSubproject = gitRoot !== null && path.resolve(gitRoot) !== path.resolve(projectRoot);
         if (aiTool === 'other') {
             const claudeConfig = JSON.stringify({
                 mcpServers: {
@@ -125,40 +191,46 @@ function addMcpConfig(options) {
         }
         // .mcp.json — Claude Code (needs cmd /c on Windows to invoke npx.cmd)
         if (aiTool === 'claude-code' || aiTool === 'both') {
+            const mcpConfig = JSON.stringify({
+                mcpServers: {
+                    'ng-annotate': isWindows
+                        ? { command: 'cmd', args: ['/c', 'npx', '-y', '@ng-annotate/mcp-server'], env }
+                        : { command: 'npx', args: ['-y', '@ng-annotate/mcp-server'], env },
+                },
+            }, null, 2) + '\n';
             if (!tree.exists('.mcp.json')) {
-                const mcpConfig = {
-                    mcpServers: {
-                        'ng-annotate': isWindows
-                            ? { command: 'cmd', args: ['/c', 'npx', '-y', '@ng-annotate/mcp-server'], env }
-                            : { command: 'npx', args: ['-y', '@ng-annotate/mcp-server'], env },
-                    },
-                };
-                tree.create('.mcp.json', JSON.stringify(mcpConfig, null, 2) + '\n');
+                tree.create('.mcp.json', mcpConfig);
                 context.logger.info('✅ Created .mcp.json');
             }
             else {
                 context.logger.info('.mcp.json already exists, skipping.');
             }
+            if (isSubproject) {
+                writeOutsideTree(path.join(gitRoot, '.mcp.json'), mcpConfig, context);
+            }
         }
         // .vscode/mcp.json — VS Code Copilot
         if (aiTool === 'vscode' || aiTool === 'both') {
+            const vscodeMcpConfig = JSON.stringify({
+                servers: {
+                    'ng-annotate': {
+                        type: 'stdio',
+                        command: 'npx',
+                        args: ['-y', '@ng-annotate/mcp-server'],
+                        env,
+                    },
+                },
+            }, null, 2) + '\n';
             const vscodeMcpPath = '.vscode/mcp.json';
             if (!tree.exists(vscodeMcpPath)) {
-                const vscodeMcpConfig = {
-                    servers: {
-                        'ng-annotate': {
-                            type: 'stdio',
-                            command: 'npx',
-                            args: ['-y', '@ng-annotate/mcp-server'],
-                            env,
-                        },
-                    },
-                };
-                tree.create(vscodeMcpPath, JSON.stringify(vscodeMcpConfig, null, 2) + '\n');
+                tree.create(vscodeMcpPath, vscodeMcpConfig);
                 context.logger.info('✅ Created .vscode/mcp.json');
             }
             else {
                 context.logger.info('.vscode/mcp.json already exists, skipping.');
+            }
+            if (isSubproject) {
+                writeOutsideTree(path.join(gitRoot, '.vscode', 'mcp.json'), vscodeMcpConfig, context);
             }
         }
     };

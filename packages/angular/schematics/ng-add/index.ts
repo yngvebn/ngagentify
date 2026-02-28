@@ -1,5 +1,7 @@
 import { Rule, SchematicContext, Tree, chain, SchematicsException } from '@angular-devkit/schematics';
 import { NodePackageInstallTask } from '@angular-devkit/schematics/tasks';
+import * as fs from 'fs';
+import * as path from 'path';
 
 /** Insert `newImport` on the line after the last import statement (handles multi-line imports and blank lines between groups). */
 function insertAfterLastImport(content: string, newImport: string): string {
@@ -116,12 +118,44 @@ function addProviders(): Rule {
   };
 }
 
+/** Walk up from startDir until we find a .git folder; returns that directory or null. */
+function findGitRoot(startDir: string): string | null {
+  let dir = path.resolve(startDir);
+  while (true) {
+    if (fs.existsSync(path.join(dir, '.git'))) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
+
+/**
+ * Write a config file outside the schematic Tree (e.g. to a parent git root).
+ * Uses fs directly — intentionally bypasses Tree so it works for out-of-project paths.
+ */
+function writeOutsideTree(absPath: string, content: string, context: SchematicContext): void {
+  const dir = path.dirname(absPath);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  if (fs.existsSync(absPath)) {
+    context.logger.info(`${path.basename(absPath)} already exists at workspace root, skipping.`);
+    return;
+  }
+  fs.writeFileSync(absPath, content, 'utf-8');
+  context.logger.info(`✅ Created ${path.basename(absPath)} at workspace root (${dir})`);
+}
+
 function addMcpConfig(options: Options): Rule {
   return (tree: Tree, context: SchematicContext) => {
-    const projectRoot = process.cwd().replace(/\\/g, '/');
-    const env = { NG_ANNOTATE_PROJECT_ROOT: projectRoot };
+    const projectRoot = process.cwd();
+    const env = { NG_ANNOTATE_PROJECT_ROOT: projectRoot.replace(/\\/g, '/') };
     const isWindows = process.platform === 'win32';
     const { aiTool } = options;
+
+    // Detect monorepo: if git root is a parent of the Angular project, VS Code is likely
+    // opened there — write configs to both the project folder and the git root.
+    const gitRoot = findGitRoot(projectRoot);
+    const isSubproject =
+      gitRoot !== null && path.resolve(gitRoot) !== path.resolve(projectRoot);
 
     if (aiTool === 'other') {
       const claudeConfig = JSON.stringify(
@@ -163,39 +197,59 @@ function addMcpConfig(options: Options): Rule {
 
     // .mcp.json — Claude Code (needs cmd /c on Windows to invoke npx.cmd)
     if (aiTool === 'claude-code' || aiTool === 'both') {
-      if (!tree.exists('.mcp.json')) {
-        const mcpConfig = {
-          mcpServers: {
-            'ng-annotate': isWindows
-              ? { command: 'cmd', args: ['/c', 'npx', '-y', '@ng-annotate/mcp-server'], env }
-              : { command: 'npx', args: ['-y', '@ng-annotate/mcp-server'], env },
+      const mcpConfig =
+        JSON.stringify(
+          {
+            mcpServers: {
+              'ng-annotate': isWindows
+                ? { command: 'cmd', args: ['/c', 'npx', '-y', '@ng-annotate/mcp-server'], env }
+                : { command: 'npx', args: ['-y', '@ng-annotate/mcp-server'], env },
+            },
           },
-        };
-        tree.create('.mcp.json', JSON.stringify(mcpConfig, null, 2) + '\n');
+          null,
+          2,
+        ) + '\n';
+
+      if (!tree.exists('.mcp.json')) {
+        tree.create('.mcp.json', mcpConfig);
         context.logger.info('✅ Created .mcp.json');
       } else {
         context.logger.info('.mcp.json already exists, skipping.');
+      }
+
+      if (isSubproject) {
+        writeOutsideTree(path.join(gitRoot!, '.mcp.json'), mcpConfig, context);
       }
     }
 
     // .vscode/mcp.json — VS Code Copilot
     if (aiTool === 'vscode' || aiTool === 'both') {
-      const vscodeMcpPath = '.vscode/mcp.json';
-      if (!tree.exists(vscodeMcpPath)) {
-        const vscodeMcpConfig = {
-          servers: {
-            'ng-annotate': {
-              type: 'stdio',
-              command: 'npx',
-              args: ['-y', '@ng-annotate/mcp-server'],
-              env,
+      const vscodeMcpConfig =
+        JSON.stringify(
+          {
+            servers: {
+              'ng-annotate': {
+                type: 'stdio',
+                command: 'npx',
+                args: ['-y', '@ng-annotate/mcp-server'],
+                env,
+              },
             },
           },
-        };
-        tree.create(vscodeMcpPath, JSON.stringify(vscodeMcpConfig, null, 2) + '\n');
+          null,
+          2,
+        ) + '\n';
+
+      const vscodeMcpPath = '.vscode/mcp.json';
+      if (!tree.exists(vscodeMcpPath)) {
+        tree.create(vscodeMcpPath, vscodeMcpConfig);
         context.logger.info('✅ Created .vscode/mcp.json');
       } else {
         context.logger.info('.vscode/mcp.json already exists, skipping.');
+      }
+
+      if (isSubproject) {
+        writeOutsideTree(path.join(gitRoot!, '.vscode', 'mcp.json'), vscodeMcpConfig, context);
       }
     }
   };
