@@ -72,7 +72,7 @@ The agent will drain any queued annotations and then enter a `watch_annotations`
 
 **3. Annotate in the browser**
 
-Open `localhost:4200`, press `Alt+Shift+A` to enter inspect mode, click a component, type your instruction, and submit. The agent picks it up within seconds, edits the file, and the browser hot-reloads.
+Open your Angular app in the browser, press `Alt+Shift+A` to enter inspect mode, click a component, type your instruction, and submit. The agent picks it up within seconds, edits the file, and the browser hot-reloads.
 
 ## Keyboard shortcuts
 
