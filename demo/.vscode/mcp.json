@@ -4,6 +4,14 @@
     "angular-cli": {
       "command": "npx",
       "args": ["-y", "@angular/cli", "mcp"]
+    },
+    "ng-annotate": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["C:/github/ngagentify/node_modules/@ng-annotate/mcp-server/dist/index.js"],
+      "env": {
+        "NG_ANNOTATE_PROJECT_ROOT": "C:/github/ngagentify/demo"
+      }
     }
   }
 }

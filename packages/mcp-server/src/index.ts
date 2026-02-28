@@ -7,7 +7,7 @@ function log(msg: string): void {
 }
 
 async function main(): Promise<void> {
-  log('starting up...');
+  log(`starting up (cwd: ${process.cwd()}, node: ${process.version})`);
 
   const server = new McpServer({
     name: 'ng-annotate',

@@ -71,14 +71,20 @@ function addProviders() {
 }
 function addMcpConfig() {
     return (tree, context) => {
-        // .mcp.json — Claude Code (needs cmd /c on Windows to spawn npx.cmd)
+        // The project root at ng-add time — used to build stable absolute paths.
+        // MCP hosts (VS Code Copilot, Claude Code) may spawn the server with a
+        // different cwd, so we bake in the paths rather than relying on cwd.
+        const projectRoot = process.cwd().replace(/\\/g, '/');
+        const serverEntry = `${projectRoot}/node_modules/@ng-annotate/mcp-server/dist/index.js`;
+        const env = { NG_ANNOTATE_PROJECT_ROOT: projectRoot };
+        // .mcp.json — Claude Code
         if (!tree.exists('.mcp.json')) {
             const isWindows = process.platform === 'win32';
             const mcpConfig = {
                 mcpServers: {
                     'ng-annotate': isWindows
-                        ? { command: 'cmd', args: ['/c', 'npx', '@ng-annotate/mcp-server'] }
-                        : { command: 'npx', args: ['@ng-annotate/mcp-server'] },
+                        ? { command: 'cmd', args: ['/c', 'node', serverEntry], env }
+                        : { command: 'node', args: [serverEntry], env },
                 },
             };
             tree.create('.mcp.json', JSON.stringify(mcpConfig, null, 2) + '\n');
@@ -87,16 +93,16 @@ function addMcpConfig() {
         else {
             context.logger.info('.mcp.json already exists, skipping.');
         }
-        // .vscode/mcp.json — VS Code Copilot (spawns npx.cmd natively on Windows)
+        // .vscode/mcp.json — VS Code Copilot
         const vscodeMcpPath = '.vscode/mcp.json';
         if (!tree.exists(vscodeMcpPath)) {
             const vscodeMcpConfig = {
                 servers: {
                     'ng-annotate': {
                         type: 'stdio',
-                        command: 'npx',
-                        args: ['@ng-annotate/mcp-server'],
-                        cwd: '${workspaceFolder}',
+                        command: 'node',
+                        args: [serverEntry],
+                        env,
                     },
                 },
             };
@@ -134,7 +140,7 @@ function addDevDependency() {
 }
 function default_1() {
     return (tree, context) => {
-        context.logger.info('Setting up @ng-annotate/vite-plugin...');
+        context.logger.info('Setting up @ng-annotate...');
         return (0, schematics_1.chain)([checkAngularVersion(), addDevDependency(), addVitePlugin(), addProviders(), addMcpConfig()])(tree, context);
     };
 }

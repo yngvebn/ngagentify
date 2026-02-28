@@ -50,7 +50,11 @@ const EMPTY_STORE: StoreData = { sessions: {}, annotations: {} };
 // ─── File paths ───────────────────────────────────────────────────────────────
 
 export const STORE_DIR = '.ng-annotate';
-export const STORE_PATH = path.join(process.cwd(), STORE_DIR, 'store.json');
+// NG_ANNOTATE_PROJECT_ROOT lets the MCP server find the store even when its
+// working directory differs from the Angular project root (e.g. when spawned
+// by VS Code Copilot or Claude Code from a non-project cwd).
+const PROJECT_ROOT = process.env.NG_ANNOTATE_PROJECT_ROOT ?? process.cwd();
+export const STORE_PATH = path.join(PROJECT_ROOT, STORE_DIR, 'store.json');
 
 // ─── Store init ───────────────────────────────────────────────────────────────
 
