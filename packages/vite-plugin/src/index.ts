@@ -1,7 +1,7 @@
 import type { Plugin } from 'vite';
 import { createWsHandler } from './ws-handler.js';
 import { createManifestPlugin } from './manifest.js';
-import { setProjectRoot } from './store.js';
+import { setProjectRoot, getStorePath } from './store.js';
 
 // Default export for Angular's angular.json `plugins` option — Angular calls it as a function.
 export default ngAnnotateMcp;
@@ -13,6 +13,7 @@ export function ngAnnotateMcp(): Plugin[] {
 
     configResolved(config) {
       setProjectRoot(config.root);
+      config.logger.info(`[ng-annotate] store → ${getStorePath()}`);
     },
 
     configureServer(server) {
