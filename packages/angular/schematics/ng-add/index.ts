@@ -1,6 +1,32 @@
 import { Rule, SchematicContext, Tree, chain, SchematicsException } from '@angular-devkit/schematics';
 import { NodePackageInstallTask } from '@angular-devkit/schematics/tasks';
 
+/** Insert `newImport` on the line after the last import statement (handles multi-line imports and blank lines between groups). */
+function insertAfterLastImport(content: string, newImport: string): string {
+  const lines = content.split('\n');
+  let lastImportLine = -1;
+  let inImport = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    if (/^import\s/.test(lines[i])) inImport = true;
+    if (inImport) {
+      lastImportLine = i;
+      if (lines[i].includes(';')) inImport = false;
+    }
+  }
+
+  if (lastImportLine < 0) return newImport + '\n' + content;
+  lines.splice(lastImportLine + 1, 0, newImport);
+  return lines.join('\n');
+}
+
+/** Insert `newProvider` as the first item in the `providers: [...]` array, preserving indentation style. */
+function insertIntoProviders(content: string, newProvider: string): string {
+  return content.replace(/^(\s*)providers\s*:\s*\[/m, (match, indent) => {
+    return `${indent}providers: [\n${indent}  ${newProvider},`;
+  });
+}
+
 interface Options {
   aiTool: 'claude-code' | 'vscode' | 'both' | 'other';
 }
@@ -49,13 +75,7 @@ function addVitePlugin(): Rule {
       return;
     }
 
-    // Insert import after the last existing import line
-    content = content.replace(
-      /(^import .+$(\r?\n)?)+/m,
-      (match) => match + "import { ngAnnotateMcp } from '@ng-annotate/vite-plugin';\n",
-    );
-
-    // Insert spread into plugins array (handles `plugins: [` or `plugins:[`)
+    content = insertAfterLastImport(content, "import { ngAnnotateMcp } from '@ng-annotate/vite-plugin';");
     content = content.replace(/plugins\s*:\s*\[/, 'plugins: [...ngAnnotateMcp(), ');
 
     tree.overwrite(viteConfigPath, content);
@@ -88,14 +108,8 @@ function addProviders(): Rule {
       return;
     }
 
-    // Insert import after the last existing import line
-    content = content.replace(
-      /(^import .+$(\r?\n)?)+/m,
-      (match) => match + "import { provideNgAnnotate } from '@ng-annotate/angular';\n",
-    );
-
-    // Insert into providers array
-    content = content.replace(/providers\s*:\s*\[/, 'providers: [\n    provideNgAnnotate(),');
+    content = insertAfterLastImport(content, "import { provideNgAnnotate } from '@ng-annotate/angular';");
+    content = insertIntoProviders(content, 'provideNgAnnotate()');
 
     tree.overwrite(appConfigPath, content);
     context.logger.info(`✅ Added provideNgAnnotate() to ${appConfigPath}`);
