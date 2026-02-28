@@ -57,10 +57,8 @@
           "defaultConfiguration": "production"
         },
         "serve": {
-          "builder": "@angular/build:dev-server",
-          "options": {
-            "proxyConfig": "proxy.conf.json"
-          },
+          "builder": "@ng-annotate/angular:dev-server",
+          "options": {},
           "configurations": {
             "production": {
               "buildTarget": "ng-annotate-demo:build:production"

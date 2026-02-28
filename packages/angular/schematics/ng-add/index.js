@@ -239,8 +239,18 @@ function addDevDependency() {
         if (!tree.exists(pkgPath))
             return;
         const pkg = JSON.parse(tree.read(pkgPath).toString('utf-8'));
+        pkg['dependencies'] ?? (pkg['dependencies'] = {});
         pkg['devDependencies'] ?? (pkg['devDependencies'] = {});
         let changed = false;
+        // ng add installs @ng-annotate/angular into dependencies by default.
+        // Move it to devDependencies — it is a dev-only tool.
+        const ngAnnotateVersion = pkg['dependencies']['@ng-annotate/angular'];
+        if (ngAnnotateVersion && !pkg['devDependencies']['@ng-annotate/angular']) {
+            pkg['devDependencies']['@ng-annotate/angular'] = ngAnnotateVersion;
+            delete pkg['dependencies']['@ng-annotate/angular'];
+            changed = true;
+            context.logger.info('✅ Moved @ng-annotate/angular to devDependencies');
+        }
         if (!pkg['devDependencies']['@ng-annotate/mcp-server']) {
             pkg['devDependencies']['@ng-annotate/mcp-server'] = 'latest';
             changed = true;
