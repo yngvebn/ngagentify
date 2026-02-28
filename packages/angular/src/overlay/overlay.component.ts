@@ -168,11 +168,12 @@ interface AnnotationBadge {
           [(ngModel)]="annotationText"
           placeholder="Describe the change..."
           rows="4"
+          (keydown.shift.enter)="$event.preventDefault(); submit()"
         ></textarea>
 
         <div class="nga-actions">
           <button class="nga-btn nga-btn-submit" (click)="submit()" [disabled]="annotationText.trim() === ''">
-            Submit
+            Submit <small style="opacity:0.7;font-size:11px">Shift+Enter</small>
           </button>
           <button class="nga-btn nga-btn-cancel" (click)="cancel()">Cancel</button>
         </div>

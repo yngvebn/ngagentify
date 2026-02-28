@@ -11,6 +11,18 @@ import { WebSocketServer, WebSocket } from 'ws';
 
 const STORE_DIR = '.ng-annotate';
 
+/** Walk up from startDir until we find a .git folder; return that dir or startDir. */
+function findStoreRoot(startDir: string): string {
+  let dir = path.resolve(startDir);
+  let parent = path.dirname(dir);
+  while (parent !== dir) {
+    if (fs.existsSync(path.join(dir, '.git'))) return dir;
+    dir = parent;
+    parent = path.dirname(dir);
+  }
+  return startDir;
+}
+
 interface Session {
   id: string;
   createdAt: string;
@@ -227,9 +239,10 @@ function createAnnotateWsHandler(store: ReturnType<typeof makeStore>) {
 // ─── Builder ──────────────────────────────────────────────────────────────────
 
 export default createBuilder<DevServerBuilderOptions>((options, context) => {
-  const projectRoot = context.workspaceRoot;
+  const workspaceRoot = context.workspaceRoot;
+  const projectRoot = findStoreRoot(workspaceRoot);
   const store = makeStore(projectRoot);
-  const manifest = buildManifest(projectRoot);
+  const manifest = buildManifest(workspaceRoot);
   const { wss } = createAnnotateWsHandler(store);
 
   let wsAttached = false;
