@@ -287,6 +287,28 @@ function addDevDependency(): Rule {
   };
 }
 
+function addGitignore(): Rule {
+  return (tree: Tree, context: SchematicContext) => {
+    const entry = '.ng-annotate/';
+    const gitignorePath = '.gitignore';
+
+    if (!tree.exists(gitignorePath)) {
+      tree.create(gitignorePath, entry + '\n');
+      context.logger.info('✅ Created .gitignore with .ng-annotate/');
+      return;
+    }
+
+    const content = tree.read(gitignorePath)!.toString('utf-8');
+    if (content.includes(entry)) {
+      context.logger.info('.ng-annotate/ already in .gitignore, skipping.');
+      return;
+    }
+
+    tree.overwrite(gitignorePath, content.trimEnd() + '\n\n' + entry + '\n');
+    context.logger.info('✅ Added .ng-annotate/ to .gitignore');
+  };
+}
+
 export default function (options: Options): Rule {
   return (tree: Tree, context: SchematicContext) => {
     context.logger.info('Setting up @ng-annotate...');
@@ -296,6 +318,7 @@ export default function (options: Options): Rule {
       addVitePlugin(),
       addProviders(),
       addMcpConfig(options),
+      addGitignore(),
     ])(tree, context);
   };
 }
