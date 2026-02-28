@@ -1,6 +1,6 @@
 {
   "name": "@ng-annotate/mcp-server",
-  "version": "0.5.9",
+  "version": "0.5.10",
   "type": "module",
   "bin": {
     "ng-annotate-mcp": "bin/ng-annotate-mcp.js"
