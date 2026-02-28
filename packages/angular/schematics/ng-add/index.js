@@ -71,14 +71,14 @@ function addProviders() {
 }
 function addMcpConfig() {
     return (tree, context) => {
-        // .mcp.json — Claude Code
+        // .mcp.json — Claude Code (needs cmd /c on Windows to spawn npx.cmd)
         if (!tree.exists('.mcp.json')) {
+            const isWindows = process.platform === 'win32';
             const mcpConfig = {
                 mcpServers: {
-                    'ng-annotate': {
-                        command: 'node',
-                        args: ['./node_modules/@ng-annotate/mcp-server/dist/index.js'],
-                    },
+                    'ng-annotate': isWindows
+                        ? { command: 'cmd', args: ['/c', 'npx', '@ng-annotate/mcp-server'] }
+                        : { command: 'npx', args: ['@ng-annotate/mcp-server'] },
                 },
             };
             tree.create('.mcp.json', JSON.stringify(mcpConfig, null, 2) + '\n');
@@ -87,24 +87,19 @@ function addMcpConfig() {
         else {
             context.logger.info('.mcp.json already exists, skipping.');
         }
-        // .vscode/mcp.json — VS Code Copilot
+        // .vscode/mcp.json — VS Code Copilot (spawns npx.cmd natively on Windows)
         const vscodeMcpPath = '.vscode/mcp.json';
         if (!tree.exists(vscodeMcpPath)) {
             const vscodeMcpConfig = {
                 servers: {
                     'ng-annotate': {
                         type: 'stdio',
-                        command: 'node',
-                        args: ['./node_modules/@ng-annotate/mcp-server/dist/index.js'],
+                        command: 'npx',
+                        args: ['@ng-annotate/mcp-server'],
                     },
                 },
             };
-            if (!tree.exists('.vscode')) {
-                tree.create(vscodeMcpPath, JSON.stringify(vscodeMcpConfig, null, 2) + '\n');
-            }
-            else {
-                tree.create(vscodeMcpPath, JSON.stringify(vscodeMcpConfig, null, 2) + '\n');
-            }
+            tree.create(vscodeMcpPath, JSON.stringify(vscodeMcpConfig, null, 2) + '\n');
             context.logger.info('✅ Created .vscode/mcp.json');
         }
         else {
