@@ -29,7 +29,7 @@
       "types": "./dist/types/ng-annotate-angular.d.ts",
       "default": "./dist/fesm2022/ng-annotate-angular.mjs"
     },
-    "./package.json": "./package.json"
+    "./package.json": { "default": "./package.json" }
   },
   "scripts": {
     "build": "ng-packagr -p ng-package.json && npm run build:schematics",
