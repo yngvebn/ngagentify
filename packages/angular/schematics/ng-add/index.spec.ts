@@ -72,8 +72,21 @@ const BASE_PKG = JSON.stringify({
   devDependencies: {},
 });
 
-async function runSchematic(tree: UnitTestTree): Promise<UnitTestTree> {
-  return runner.runSchematic('ng-add', { aiTool: 'claude-code' }, tree);
+const ANGULAR_JSON = JSON.stringify({
+  projects: {
+    'my-app': {
+      architect: {
+        serve: {
+          builder: '@angular/build:dev-server',
+          options: {},
+        },
+      },
+    },
+  },
+});
+
+async function runSchematic(tree: Tree): Promise<ReturnType<typeof Tree.empty> & { readText(p: string): string }> {
+  return runner.runSchematic('ng-add', { aiTool: 'claude-code' }, tree) as Promise<ReturnType<typeof Tree.empty> & { readText(p: string): string }>;
 }
 
 function makeTree(files: Record<string, string>): Tree {
@@ -84,50 +97,75 @@ function makeTree(files: Record<string, string>): Tree {
   return tree;
 }
 
-describe('ng-add schematic — addVitePlugin', () => {
-  it('creates vite.config.ts when none exists', async () => {
-    const tree = makeTree({ 'package.json': BASE_PKG });
+// ─── updateAngularJsonBuilder ─────────────────────────────────────────────────
+
+describe('ng-add schematic — updateAngularJsonBuilder', () => {
+  it('updates builder to @ng-annotate/angular:dev-server', async () => {
+    const tree = makeTree({ 'package.json': BASE_PKG, 'angular.json': ANGULAR_JSON });
     const result = await runSchematic(tree);
-    expect(result.exists('vite.config.ts')).toBe(true);
-    const content = result.readText('vite.config.ts');
-    expect(content).toContain("import { ngAnnotateMcp } from '@ng-annotate/vite-plugin'");
-    expect(content).toContain('plugins: [...ngAnnotateMcp()]');
+    const angular = JSON.parse(result.readText('angular.json')) as Record<string, unknown>;
+    const projects = angular['projects'] as Record<string, Record<string, unknown>>;
+    const serve = (projects['my-app']['architect'] as Record<string, Record<string, unknown>>)['serve'];
+    expect((serve['builder'] as string)).toBe('@ng-annotate/angular:dev-server');
   });
 
-  it('adds plugin to existing vite.config.ts with a plugins array', async () => {
-    const tree = makeTree({
-      'package.json': BASE_PKG,
-      'vite.config.ts': `import { defineConfig } from 'vite';\nimport { foo } from 'foo';\n\nexport default defineConfig({\n  plugins: [foo()],\n});\n`,
+  it('skips when already using ng-annotate builder', async () => {
+    const withNgAnnotate = JSON.stringify({
+      projects: {
+        'my-app': {
+          architect: {
+            serve: {
+              builder: '@ng-annotate/angular:dev-server',
+              options: {},
+            },
+          },
+        },
+      },
     });
+    const tree = makeTree({ 'package.json': BASE_PKG, 'angular.json': withNgAnnotate });
     const result = await runSchematic(tree);
-    const content = result.readText('vite.config.ts');
-    expect(content).toContain("import { ngAnnotateMcp } from '@ng-annotate/vite-plugin'");
-    expect(content).toContain('plugins: [...ngAnnotateMcp(), ');
+    const angular = JSON.parse(result.readText('angular.json')) as Record<string, unknown>;
+    const projects = angular['projects'] as Record<string, Record<string, unknown>>;
+    const serve = (projects['my-app']['architect'] as Record<string, Record<string, unknown>>)['serve'];
+    expect((serve['builder'] as string)).toBe('@ng-annotate/angular:dev-server');
   });
 
-  it('adds plugins array to vite.config.ts that has defineConfig({}) with no plugins', async () => {
-    const tree = makeTree({
-      'package.json': BASE_PKG,
-      'vite.config.ts': `import { defineConfig } from 'vite';\nimport { ngAnnotateMcp } from '@ng-annotate/vite-plugin';\n\nexport default defineConfig({});\n`,
+  it('warns but does not change unknown builders', async () => {
+    const withCustomBuilder = JSON.stringify({
+      projects: {
+        'my-app': {
+          architect: {
+            serve: {
+              builder: '@custom/builder:dev-server',
+              options: {},
+            },
+          },
+        },
+      },
     });
-    // Already has the import but no plugins — should not be skipped
-    // Re-create without the import to test the injection path
-    const tree2 = makeTree({
-      'package.json': BASE_PKG,
-      'vite.config.ts': `import { defineConfig } from 'vite';\n\nexport default defineConfig({});\n`,
-    });
-    const result = await runSchematic(tree2);
-    const content = result.readText('vite.config.ts');
-    expect(content).toContain('plugins: [...ngAnnotateMcp()]');
+    const tree = makeTree({ 'package.json': BASE_PKG, 'angular.json': withCustomBuilder });
+    const result = await runSchematic(tree);
+    const angular = JSON.parse(result.readText('angular.json')) as Record<string, unknown>;
+    const projects = angular['projects'] as Record<string, Record<string, unknown>>;
+    const serve = (projects['my-app']['architect'] as Record<string, Record<string, unknown>>)['serve'];
+    // Should NOT overwrite a custom builder
+    expect((serve['builder'] as string)).toBe('@custom/builder:dev-server');
   });
 
-  it('skips when @ng-annotate/vite-plugin already present', async () => {
-    const original = `import { defineConfig } from 'vite';\nimport { ngAnnotateMcp } from '@ng-annotate/vite-plugin';\n\nexport default defineConfig({\n  plugins: [...ngAnnotateMcp()],\n});\n`;
-    const tree = makeTree({ 'package.json': BASE_PKG, 'vite.config.ts': original });
+  it('does not create vite.config.ts (Angular CLI never loads it)', async () => {
+    const tree = makeTree({ 'package.json': BASE_PKG, 'angular.json': ANGULAR_JSON });
     const result = await runSchematic(tree);
-    expect(result.readText('vite.config.ts')).toBe(original);
+    expect(result.exists('vite.config.ts')).toBe(false);
+  });
+
+  it('does not create proxy.conf.json (builder handles WS internally)', async () => {
+    const tree = makeTree({ 'package.json': BASE_PKG, 'angular.json': ANGULAR_JSON });
+    const result = await runSchematic(tree);
+    expect(result.exists('proxy.conf.json')).toBe(false);
   });
 });
+
+// ─── addProviders ─────────────────────────────────────────────────────────────
 
 describe('ng-add schematic — addProviders', () => {
   it('adds import and provideNgAnnotate() to standard app.config.ts', async () => {
@@ -162,71 +200,7 @@ describe('ng-add schematic — addProviders', () => {
   });
 });
 
-describe('ng-add schematic — addProxyConfig', () => {
-  const ANGULAR_JSON = JSON.stringify({
-    projects: {
-      'my-app': {
-        architect: {
-          serve: {
-            builder: '@angular/build:dev-server',
-            options: {},
-          },
-        },
-      },
-    },
-  });
-
-  it('creates proxy.conf.json and updates angular.json', async () => {
-    const tree = makeTree({ 'package.json': BASE_PKG, 'angular.json': ANGULAR_JSON });
-    const result = await runSchematic(tree);
-    expect(result.exists('proxy.conf.json')).toBe(true);
-    expect(result.readText('proxy.conf.json')).toContain('/__annotate');
-    const angular = JSON.parse(result.readText('angular.json')) as Record<string, unknown>;
-    const projects = angular['projects'] as Record<string, Record<string, unknown>>;
-    const serve = (projects['my-app']['architect'] as Record<string, Record<string, unknown>>)['serve'];
-    expect((serve['options'] as Record<string, unknown>)['proxyConfig']).toBe('proxy.conf.json');
-  });
-
-  it('skips proxy.conf.json if already exists', async () => {
-    const original = '{"/__annotate":{"target":"ws://localhost:4201","ws":true}}\n';
-    const tree = makeTree({
-      'package.json': BASE_PKG,
-      'angular.json': ANGULAR_JSON,
-      'proxy.conf.json': original,
-    });
-    const result = await runSchematic(tree);
-    expect(result.readText('proxy.conf.json')).toBe(original);
-  });
-
-  it('skips angular.json proxyConfig if already set', async () => {
-    const withProxy = JSON.stringify({
-      projects: {
-        'my-app': {
-          architect: {
-            serve: {
-              builder: '@angular/build:dev-server',
-              options: { proxyConfig: 'proxy.conf.json' },
-            },
-          },
-        },
-      },
-    });
-    const tree = makeTree({ 'package.json': BASE_PKG, 'angular.json': withProxy });
-    const result = await runSchematic(tree);
-    // Content should be unchanged (same proxyConfig value)
-    const angular = JSON.parse(result.readText('angular.json')) as Record<string, unknown>;
-    const projects = angular['projects'] as Record<string, Record<string, unknown>>;
-    const serve = (projects['my-app']['architect'] as Record<string, Record<string, unknown>>)['serve'];
-    expect((serve['options'] as Record<string, unknown>)['proxyConfig']).toBe('proxy.conf.json');
-  });
-
-  it('skips vite.config.ts setup when angular.json present', async () => {
-    const tree = makeTree({ 'package.json': BASE_PKG, 'angular.json': ANGULAR_JSON });
-    const result = await runSchematic(tree);
-    // Should NOT create vite.config.ts (Angular doesn't load vite plugins)
-    expect(result.exists('vite.config.ts')).toBe(false);
-  });
-});
+// ─── addGitignore ─────────────────────────────────────────────────────────────
 
 describe('ng-add schematic — addGitignore', () => {
   it('creates .gitignore with .ng-annotate/ when none exists', async () => {

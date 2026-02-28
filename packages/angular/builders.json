@@ -1,0 +1,10 @@
+{
+  "$schema": "@angular-devkit/architect/builders-schema.json",
+  "builders": {
+    "dev-server": {
+      "implementation": "./dist/builders/dev-server/index",
+      "schema": "./dist/builders/dev-server/schema.json",
+      "description": "ng-annotate dev server — wraps @angular/build:dev-server with integrated WebSocket support and component manifest injection. No proxy configuration required."
+    }
+  }
+}

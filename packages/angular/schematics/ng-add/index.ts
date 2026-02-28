@@ -9,6 +9,8 @@ interface Options {
 }
 
 const MIN_ANGULAR_MAJOR = 21;
+const NG_ANNOTATE_BUILDER = '@ng-annotate/angular:dev-server';
+const ANGULAR_DEV_SERVER_BUILDER = '@angular/build:dev-server';
 
 function checkAngularVersion(): Rule {
   return (tree: Tree) => {
@@ -33,22 +35,14 @@ function checkAngularVersion(): Rule {
   };
 }
 
-function addProxyConfig(): Rule {
+function updateAngularJsonBuilder(): Rule {
   return (tree: Tree, context: SchematicContext) => {
-    // Create proxy.conf.json
-    const proxyPath = 'proxy.conf.json';
-    if (!tree.exists(proxyPath)) {
-      tree.create(
-        proxyPath,
-        JSON.stringify({ '/__annotate': { target: 'ws://localhost:4201', ws: true } }, null, 2) + '\n',
-      );
-      context.logger.info('✅ Created proxy.conf.json');
-    }
-
-    // Update angular.json serve options
     const angularJsonPath = 'angular.json';
     if (!tree.exists(angularJsonPath)) {
-      context.logger.warn('⚠️  Could not find angular.json — add proxyConfig manually');
+      context.logger.warn(
+        '⚠️  Could not find angular.json — update the serve builder manually:\n' +
+          `    "builder": "${NG_ANNOTATE_BUILDER}"`,
+      );
       return;
     }
 
@@ -68,57 +62,30 @@ function addProxyConfig(): Rule {
       const serve = architect['serve'] as Record<string, unknown> | undefined;
       if (!serve) continue;
 
-      const options = (serve['options'] ?? {}) as Record<string, unknown>;
-      if (options['proxyConfig']) continue;
+      const currentBuilder = serve['builder'] as string | undefined;
 
-      serve['options'] = { ...options, proxyConfig: 'proxy.conf.json' };
+      if (currentBuilder === NG_ANNOTATE_BUILDER) {
+        context.logger.info(`ng-annotate builder already configured in ${projectName}, skipping.`);
+        continue;
+      }
+
+      if (currentBuilder !== ANGULAR_DEV_SERVER_BUILDER) {
+        context.logger.warn(
+          `⚠️  Project "${projectName}" uses builder "${String(currentBuilder)}" which is not ` +
+            `"${ANGULAR_DEV_SERVER_BUILDER}". Skipping automatic builder update — ` +
+            `set it to "${NG_ANNOTATE_BUILDER}" manually if compatible.`,
+        );
+        continue;
+      }
+
+      serve['builder'] = NG_ANNOTATE_BUILDER;
       changed = true;
-      context.logger.info(`✅ Added proxyConfig to angular.json (${projectName})`);
+      context.logger.info(`✅ Updated angular.json serve builder for "${projectName}"`);
     }
 
     if (changed) {
       tree.overwrite(angularJsonPath, JSON.stringify(angularJson, null, 2) + '\n');
     }
-  };
-}
-
-function addVitePlugin(): Rule {
-  return (tree: Tree, context: SchematicContext) => {
-    // Angular CLI does not load vite.config.ts plugins — skip for Angular projects
-    if (tree.exists('angular.json')) {
-      context.logger.info('Angular project detected — skipping vite.config.ts setup (using proxy instead).');
-      return;
-    }
-
-    const candidates = ['vite.config.ts', 'vite.config.js', 'vite.config.mts'];
-    const viteConfigPath = candidates.find((p) => tree.exists(p));
-
-    if (!viteConfigPath) {
-      const created = `import { defineConfig } from 'vite';\nimport { ngAnnotateMcp } from '@ng-annotate/vite-plugin';\n\nexport default defineConfig({\n  plugins: [...ngAnnotateMcp()],\n});\n`;
-      tree.create('vite.config.ts', created);
-      context.logger.info('✅ Created vite.config.ts with ngAnnotateMcp()');
-      return;
-    }
-
-    let content = tree.read(viteConfigPath)!.toString('utf-8');
-
-    if (content.includes('@ng-annotate/vite-plugin')) {
-      context.logger.info('@ng-annotate/vite-plugin vite plugin already present, skipping.');
-      return;
-    }
-
-    content = insertAfterLastImport(content, "import { ngAnnotateMcp } from '@ng-annotate/vite-plugin';");
-
-    if (/plugins\s*:\s*\[/.test(content)) {
-      // Existing plugins array — prepend into it
-      content = content.replace(/plugins\s*:\s*\[/, 'plugins: [...ngAnnotateMcp(), ');
-    } else {
-      // No plugins array — inject one into defineConfig({...})
-      content = content.replace(/defineConfig\(\s*\{/, 'defineConfig({\n  plugins: [...ngAnnotateMcp()],');
-    }
-
-    tree.overwrite(viteConfigPath, content);
-    context.logger.info(`✅ Added ngAnnotateMcp() to ${viteConfigPath}`);
   };
 }
 
@@ -305,12 +272,6 @@ function addDevDependency(): Rule {
 
     let changed = false;
 
-    if (!pkg['devDependencies']['@ng-annotate/vite-plugin']) {
-      pkg['devDependencies']['@ng-annotate/vite-plugin'] = 'latest';
-      changed = true;
-      context.logger.info('✅ Added @ng-annotate/vite-plugin to devDependencies');
-    }
-
     if (!pkg['devDependencies']['@ng-annotate/mcp-server']) {
       pkg['devDependencies']['@ng-annotate/mcp-server'] = 'latest';
       changed = true;
@@ -352,8 +313,7 @@ export default function (options: Options): Rule {
     return chain([
       checkAngularVersion(),
       addDevDependency(),
-      addProxyConfig(),
-      addVitePlugin(),
+      updateAngularJsonBuilder(),
       addProviders(),
       addMcpConfig(options),
       addGitignore(),

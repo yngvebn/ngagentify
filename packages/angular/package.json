@@ -2,6 +2,7 @@
   "name": "@ng-annotate/angular",
   "version": "0.4.1",
   "schematics": "./schematics/collection.json",
+  "builders": "./builders.json",
   "description": "Angular library for ng-annotate-mcp — browser overlay for annotating components and routing instructions to an AI agent",
   "keywords": [
     "angular",
@@ -19,6 +20,7 @@
   "files": [
     "dist",
     "schematics",
+    "builders.json",
     "README.md"
   ],
   "main": "dist/fesm2022/ng-annotate-angular.mjs",
@@ -34,21 +36,30 @@
     }
   },
   "scripts": {
-    "build": "ng-packagr -p ng-package.json && npm run build:schematics",
+    "build": "ng-packagr -p ng-package.json && npm run build:schematics && npm run build:builders",
     "build:watch": "ng-packagr -p ng-package.json --watch",
     "build:schematics": "tsc -p schematics/tsconfig.json",
+    "build:builders": "tsc -p builders/tsconfig.json && node -e \"require('fs').cpSync('src/builders/dev-server/schema.json','dist/builders/dev-server/schema.json')\"",
     "test": "vitest run schematics",
     "test:watch": "vitest schematics",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix"
   },
   "peerDependencies": {
+    "@angular-devkit/architect": ">=0.1700.0",
+    "@angular/build": ">=21.0.0",
     "@angular/core": ">=21.0.0",
     "rxjs": ">=7.0.0"
   },
+  "dependencies": {
+    "ws": "^8.19.0"
+  },
   "devDependencies": {
+    "@angular-devkit/architect": ">=0.2100.0",
     "@angular-devkit/schematics": ">=17.0.0",
+    "@angular/build": "^21.0.0",
     "@angular/core": "^21.0.0",
+    "@types/ws": "^8.18.1",
     "ng-packagr": "^21.2.0",
     "rxjs": "^7.0.0",
     "typescript": "~5.9.0",
