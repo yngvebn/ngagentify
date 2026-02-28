@@ -4,4 +4,6 @@ echo "Running vite-plugin tests..."
 npm run test --workspace=packages/vite-plugin
 echo "Running mcp-server tests..."
 npm run test --workspace=packages/mcp-server
+echo "Running angular schematic tests..."
+npm run test --workspace=packages/angular
 echo "All unit tests passed"

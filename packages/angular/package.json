@@ -37,6 +37,8 @@
     "build": "ng-packagr -p ng-package.json && npm run build:schematics",
     "build:watch": "ng-packagr -p ng-package.json --watch",
     "build:schematics": "tsc -p schematics/tsconfig.json",
+    "test": "vitest run schematics",
+    "test:watch": "vitest schematics",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix"
   },
@@ -49,6 +51,7 @@
     "@angular/core": "^21.0.0",
     "ng-packagr": "^21.2.0",
     "rxjs": "^7.0.0",
-    "typescript": "~5.9.0"
+    "typescript": "~5.9.0",
+    "vitest": "^4.0.18"
   }
 }
