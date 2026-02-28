@@ -37,7 +37,6 @@
   },
   "devDependencies": {
     "@types/node": "^25.3.2",
-    "@types/ws": "^8.18.1",
     "@vitest/coverage-v8": "^4.0.18",
     "typescript": "~5.6.0",
     "vitest": "^4.0.18"
@@ -45,7 +44,6 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.26.0",
     "uuid": "^13.0.0",
-    "ws": "^8.19.0",
     "zod": "^4.3.6"
   }
 }

@@ -1,7 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { registerTools } from './tools.js';
-import { startWsServer } from './ws-server.js';
 
 function log(msg: string): void {
   process.stderr.write(`[ng-annotate-mcp] ${msg}\n`);
@@ -19,8 +18,6 @@ async function main(): Promise<void> {
 
   log('registering tools...');
   registerTools(server);
-
-  startWsServer();
 
   log('connecting stdio transport...');
   const transport = new StdioServerTransport();
