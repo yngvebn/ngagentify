@@ -19,6 +19,10 @@ class MockServer {
     this.handlers.set(name, handler);
   }
 
+  registerPrompt(..._args: unknown[]) {
+    // prompts are not exercised in unit tests
+  }
+
   async call(name: string, args: Record<string, unknown> = {}): Promise<ToolResult> {
     const handler = this.handlers.get(name);
     if (!handler) throw new Error(`Tool not found: ${name}`);

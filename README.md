@@ -73,13 +73,15 @@ npm run dev
 
 **2. Start the agent polling loop**
 
-Open the project in Claude Code and tell it to start watching:
+The MCP server exposes a `start-polling` prompt that injects the full work loop instructions into the conversation. In Claude Code, invoke it with:
 
-> "Start the ng-annotate polling loop"
+```
+/mcp ng-annotate start-polling
+```
 
 The agent will call `get_all_pending`, process any queued annotations, then enter a `watch_annotations` loop waiting for new ones. It runs until you end the conversation.
 
-> **Claude Code users:** `CLAUDE.md` in your project root contains the full agent instructions. The agent will follow them automatically — just start a conversation and ask it to begin polling.
+> The `start-polling` prompt works with any MCP-compatible AI editor. The tool descriptions also encode the loop semantics, so a capable agent can infer the workflow from the tools alone.
 
 **3. Annotate in the browser**
 
