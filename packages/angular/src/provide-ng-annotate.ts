@@ -7,9 +7,9 @@ import {
   makeEnvironmentProviders,
   provideAppInitializer,
 } from '@angular/core';
-import { InspectorService } from './inspector.service.js';
-import { BridgeService } from './bridge.service.js';
-import { OverlayComponent } from './overlay/overlay.component.js';
+import { InspectorService } from './inspector.service';
+import { BridgeService } from './bridge.service';
+import { OverlayComponent } from './overlay/overlay.component';
 
 export function provideNgAnnotate() {
   return makeEnvironmentProviders([

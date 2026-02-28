@@ -10,9 +10,9 @@ import {
 } from '@angular/core';
 import { JsonPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { InspectorService } from '../inspector.service.js';
-import { BridgeService } from '../bridge.service.js';
-import type { Annotation, ComponentContext, AnnotationStatus } from '../types.js';
+import { InspectorService } from '../inspector.service';
+import { BridgeService } from '../bridge.service';
+import type { Annotation, ComponentContext, AnnotationStatus } from '../types';
 
 type OverlayMode = 'hidden' | 'inspect' | 'annotate' | 'thread';
 

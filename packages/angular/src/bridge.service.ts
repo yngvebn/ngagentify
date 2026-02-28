@@ -1,6 +1,6 @@
 import { Injectable, NgZone, OnDestroy, inject } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
-import type { Session, Annotation } from './types.js';
+import type { Session, Annotation } from './types';
 
 type BridgeMessage =
   | { type: 'session:created'; session: Session }

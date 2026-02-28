@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import type { ComponentContext } from './types.js';
+import type { ComponentContext } from './types';
 
 interface NgDevMode {
   getComponent: (element: Element) => unknown;
