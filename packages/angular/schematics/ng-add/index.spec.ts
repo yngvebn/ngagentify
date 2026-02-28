@@ -164,6 +164,27 @@ describe('ng-add schematic — updateAngularJsonBuilder', () => {
     expect((serve['builder'] as string)).toBe('@ng-annotate/angular:dev-server');
   });
 
+  it('updates legacy @angular-devkit/build-angular:dev-server builder too', async () => {
+    const withLegacyBuilder = JSON.stringify({
+      projects: {
+        'my-app': {
+          architect: {
+            serve: {
+              builder: '@angular-devkit/build-angular:dev-server',
+              options: {},
+            },
+          },
+        },
+      },
+    });
+    const tree = makeTree({ 'package.json': BASE_PKG, 'angular.json': withLegacyBuilder });
+    const result = await runSchematic(tree);
+    const angular = JSON.parse(result.readText('angular.json')) as Record<string, unknown>;
+    const projects = angular['projects'] as Record<string, Record<string, unknown>>;
+    const serve = (projects['my-app']['architect'] as Record<string, Record<string, unknown>>)['serve'];
+    expect((serve['builder'] as string)).toBe('@ng-annotate/angular:dev-server');
+  });
+
   it('warns but does not change unknown builders', async () => {
     const withCustomBuilder = JSON.stringify({
       projects: {

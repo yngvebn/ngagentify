@@ -10,7 +10,14 @@ interface Options {
 
 const MIN_ANGULAR_MAJOR = 21;
 const NG_ANNOTATE_BUILDER = '@ng-annotate/angular:dev-server';
-const ANGULAR_DEV_SERVER_BUILDER = '@angular/build:dev-server';
+
+// Both builders use the same underlying implementation in Angular 17+.
+// @angular-devkit/build-angular:dev-server is the legacy alias that many
+// projects still have in their angular.json even on Angular 21.
+const COMPATIBLE_DEV_SERVER_BUILDERS = [
+  '@angular/build:dev-server',
+  '@angular-devkit/build-angular:dev-server',
+];
 
 function checkAngularVersion(): Rule {
   return (tree: Tree) => {
@@ -69,10 +76,10 @@ function updateAngularJsonBuilder(): Rule {
         continue;
       }
 
-      if (currentBuilder !== ANGULAR_DEV_SERVER_BUILDER) {
+      if (!COMPATIBLE_DEV_SERVER_BUILDERS.includes(currentBuilder ?? '')) {
         context.logger.warn(
           `⚠️  Project "${projectName}" uses builder "${String(currentBuilder)}" which is not ` +
-            `"${ANGULAR_DEV_SERVER_BUILDER}". Skipping automatic builder update — ` +
+            `a compatible dev-server builder. Skipping automatic builder update — ` +
             `set it to "${NG_ANNOTATE_BUILDER}" manually if compatible.`,
         );
         continue;

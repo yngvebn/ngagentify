@@ -77,8 +77,7 @@ The agent will drain pending annotations, then enter a `watch_annotations` loop 
 
 | Package | Purpose |
 |---|---|
-| [`@ng-annotate/angular`](https://www.npmjs.com/package/@ng-annotate/angular) | Angular library (overlay UI, `provideNgAnnotate()`) |
-| [`@ng-annotate/vite-plugin`](https://www.npmjs.com/package/@ng-annotate/vite-plugin) | Vite plugin (WebSocket server, component manifest) |
+| [`@ng-annotate/angular`](https://www.npmjs.com/package/@ng-annotate/angular) | Angular library (overlay UI, `provideNgAnnotate()`, custom dev-server builder) |
 
 ## License
 

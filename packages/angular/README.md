@@ -16,24 +16,31 @@ ng add @ng-annotate/angular
 ```
 
 The schematic configures everything automatically:
-- Adds the Vite plugin to `vite.config.ts`
+- Switches the Angular dev server to `@ng-annotate/angular:dev-server` (handles WebSocket + manifest injection — no separate config file or proxy needed)
 - Adds `provideNgAnnotate()` to `app.config.ts`
-- Creates the MCP config file for your AI editor
+- Creates the MCP config file for your AI editor (`.mcp.json` for Claude Code, `.vscode/mcp.json` for VS Code, or both)
+
+Works with both `@angular/build:dev-server` and the legacy `@angular-devkit/build-angular:dev-server` builder.
 
 ## Manual install
 
 ```bash
-npm install @ng-annotate/angular @ng-annotate/vite-plugin --save-dev
+npm install @ng-annotate/angular --save-dev
 ```
 
-**`vite.config.ts`**
-```ts
-import { defineConfig } from 'vite';
-import { ngAnnotateMcp } from '@ng-annotate/vite-plugin';
-
-export default defineConfig({
-  plugins: [...ngAnnotateMcp()],
-});
+**`angular.json`** — change the serve builder:
+```json
+{
+  "projects": {
+    "your-app": {
+      "architect": {
+        "serve": {
+          "builder": "@ng-annotate/angular:dev-server"
+        }
+      }
+    }
+  }
+}
 ```
 
 **`src/app/app.config.ts`**
@@ -56,7 +63,7 @@ Once installed:
 
 **1. Start the dev server**
 ```bash
-npm run dev
+ng serve
 ```
 
 **2. Start the agent polling loop**
@@ -113,8 +120,8 @@ export class AppModule {}
 
 | Package | Purpose |
 |---|---|
-| [`@ng-annotate/vite-plugin`](https://www.npmjs.com/package/@ng-annotate/vite-plugin) | Vite plugin (WebSocket server, component manifest) |
 | [`@ng-annotate/mcp-server`](https://www.npmjs.com/package/@ng-annotate/mcp-server) | MCP server exposing tools to the AI agent |
+| [`@ng-annotate/vite-plugin`](https://www.npmjs.com/package/@ng-annotate/vite-plugin) | For non-Angular-CLI Vite projects (Vue, Svelte, etc.) |
 
 ## License
 

@@ -16,24 +16,29 @@ ng add @ng-annotate/angular
 ```
 
 That's it. The schematic configures everything automatically:
-- Adds the Vite plugin to `vite.config.ts`
+- Switches the Angular dev server to `@ng-annotate/angular:dev-server` (handles WebSocket + manifest injection, no separate config file needed)
 - Adds `provideNgAnnotate()` to `app.config.ts`
-- Creates `.mcp.json` for Claude Code
+- Creates `.mcp.json` for Claude Code (or `.vscode/mcp.json` for VS Code, or both)
 
 ## Manual install
 
 ```bash
-npm install @ng-annotate/angular @ng-annotate/vite-plugin --save-dev
+npm install @ng-annotate/angular --save-dev
 ```
 
-**`vite.config.ts`**
-```ts
-import { defineConfig } from 'vite';
-import { ngAnnotateMcp } from '@ng-annotate/vite-plugin';
-
-export default defineConfig({
-  plugins: [...ngAnnotateMcp()],
-});
+**`angular.json`** — change the serve builder:
+```json
+{
+  "projects": {
+    "your-app": {
+      "architect": {
+        "serve": {
+          "builder": "@ng-annotate/angular:dev-server"
+        }
+      }
+    }
+  }
+}
 ```
 
 **`src/app/app.config.ts`**
@@ -56,7 +61,10 @@ No template changes needed — the overlay is injected automatically.
   "mcpServers": {
     "ng-annotate": {
       "command": "npx",
-      "args": ["-y", "@ng-annotate/mcp-server"]
+      "args": ["-y", "@ng-annotate/mcp-server"],
+      "env": {
+        "NG_ANNOTATE_PROJECT_ROOT": "/path/to/your/project"
+      }
     }
   }
 }
@@ -68,7 +76,7 @@ Once installed, the workflow is:
 
 **1. Start the dev server**
 ```bash
-npm run dev
+ng serve
 ```
 
 **2. Start the agent polling loop**
@@ -101,9 +109,9 @@ Open your Angular app in the browser, press `Alt+Shift+A` to enter inspect mode,
 
 | Package | Purpose |
 |---|---|
-| `@ng-annotate/angular` | Angular library (overlay UI, bridge service) |
-| `@ng-annotate/vite-plugin` | Vite plugin (WebSocket server, component manifest) |
+| `@ng-annotate/angular` | Angular library — overlay UI, `provideNgAnnotate()`, and the custom `dev-server` builder |
 | `@ng-annotate/mcp-server` | MCP server exposing tools to the AI agent |
+| `@ng-annotate/vite-plugin` | Vite plugin for non-Angular-CLI projects (Vite + Vue, Svelte, etc.) |
 
 ## Dev
 
