@@ -50,16 +50,24 @@ const EMPTY_STORE: StoreData = { sessions: {}, annotations: {} };
 // ─── File paths ───────────────────────────────────────────────────────────────
 
 export const STORE_DIR = '.ng-annotate';
-const PROJECT_ROOT = process.env.NG_ANNOTATE_PROJECT_ROOT ?? process.cwd();
-export const STORE_PATH = path.join(PROJECT_ROOT, STORE_DIR, 'store.json');
+let projectRoot = process.env.NG_ANNOTATE_PROJECT_ROOT ?? process.cwd();
+
+/** Call from the Vite `configResolved` hook to pin the store to the Vite project root. */
+export function setProjectRoot(root: string): void {
+  projectRoot = root;
+}
+
+export function getStorePath(): string {
+  return path.join(projectRoot, STORE_DIR, 'store.json');
+}
 
 // ─── Store init ───────────────────────────────────────────────────────────────
 
 export function ensureStore(): void {
-  const dir = path.join(PROJECT_ROOT, STORE_DIR);
+  const dir = path.join(projectRoot, STORE_DIR);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  if (!fs.existsSync(STORE_PATH)) {
-    fs.writeFileSync(STORE_PATH, JSON.stringify(EMPTY_STORE, null, 2), 'utf8');
+  if (!fs.existsSync(getStorePath())) {
+    fs.writeFileSync(getStorePath(), JSON.stringify(EMPTY_STORE, null, 2), 'utf8');
   }
 }
 
@@ -76,10 +84,10 @@ async function withLock<T>(fn: (data: StoreData) => StoreData | Promise<StoreDat
   ensureStore();
 
   const result = writeQueue.then(async () => {
-    const raw = fs.readFileSync(STORE_PATH, 'utf8');
+    const raw = fs.readFileSync(getStorePath(), 'utf8');
     const data = JSON.parse(raw) as StoreData;
     const updated = await fn(data);
-    fs.writeFileSync(STORE_PATH, JSON.stringify(updated, null, 2), 'utf8');
+    fs.writeFileSync(getStorePath(), JSON.stringify(updated, null, 2), 'utf8');
     return updated as unknown as T;
   });
 
@@ -91,7 +99,7 @@ async function withLock<T>(fn: (data: StoreData) => StoreData | Promise<StoreDat
 
 function readStore(): StoreData {
   ensureStore();
-  return JSON.parse(fs.readFileSync(STORE_PATH, 'utf8')) as StoreData;
+  return JSON.parse(fs.readFileSync(getStorePath(), 'utf8')) as StoreData;
 }
 
 // ─── Pub/sub watchers ─────────────────────────────────────────────────────────

@@ -35,11 +35,16 @@ export function createWsHandler(server: ViteDevServer): void {
     void (async () => {
       const referer = req.headers.referer ?? req.headers.origin ?? '';
 
-      const session = await store.createSession({ active: true, url: referer });
-      const sessionId = session.id;
-
-      safeSend(ws, { type: 'session:created', session });
-      sessionSockets.set(sessionId, ws);
+      let sessionId: string;
+      try {
+        const session = await store.createSession({ active: true, url: referer });
+        sessionId = session.id;
+        safeSend(ws, { type: 'session:created', session });
+        sessionSockets.set(sessionId, ws);
+      } catch (err) {
+        server.config.logger.error(`[ng-annotate] Failed to create session: ${String(err)}`);
+        return;
+      }
 
       ws.on('message', (raw: Buffer) => {
         void (async () => {
@@ -50,22 +55,22 @@ export function createWsHandler(server: ViteDevServer): void {
             return;
           }
 
-          if (msg.type === 'annotation:create') {
-            const annotation = await store.createAnnotation({
-              ...(msg.payload as Parameters<typeof store.createAnnotation>[0]),
-              sessionId,
-            });
-            safeSend(ws, { type: 'annotation:created', annotation });
-          } else if (msg.type === 'annotation:reply') {
-            const annotation = await store.addReply(msg.id, { author: 'user', message: msg.message });
-            if (annotation) {
-              safeSend(ws, { type: 'annotation:updated', annotation });
+          try {
+            if (msg.type === 'annotation:create') {
+              const annotation = await store.createAnnotation({
+                ...(msg.payload as Parameters<typeof store.createAnnotation>[0]),
+                sessionId,
+              });
+              safeSend(ws, { type: 'annotation:created', annotation });
+            } else if (msg.type === 'annotation:reply') {
+              const annotation = await store.addReply(msg.id, { author: 'user', message: msg.message });
+              if (annotation) safeSend(ws, { type: 'annotation:updated', annotation });
+            } else {
+              const annotation = await store.updateAnnotation(msg.id, { status: 'dismissed' });
+              if (annotation) safeSend(ws, { type: 'annotation:updated', annotation });
             }
-          } else {
-            const annotation = await store.updateAnnotation(msg.id, { status: 'dismissed' });
-            if (annotation) {
-              safeSend(ws, { type: 'annotation:updated', annotation });
-            }
+          } catch (err) {
+            server.config.logger.error(`[ng-annotate] Failed to process message: ${String(err)}`);
           }
         })();
       });
