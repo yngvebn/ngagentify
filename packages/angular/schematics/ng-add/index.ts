@@ -107,12 +107,12 @@ function addMcpConfig(): Rule {
       return;
     }
 
+    const isWindows = process.platform === 'win32';
     const mcpConfig = {
       mcpServers: {
-        'ng-annotate': {
-          command: 'npx',
-          args: ['-y', '@ng-annotate/mcp-server'],
-        },
+        'ng-annotate': isWindows
+          ? { command: 'cmd', args: ['/c', 'npx', '-y', '@ng-annotate/mcp-server'] }
+          : { command: 'npx', args: ['-y', '@ng-annotate/mcp-server'] },
       },
     };
 
