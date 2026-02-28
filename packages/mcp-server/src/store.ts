@@ -50,10 +50,29 @@ const EMPTY_STORE: StoreData = { sessions: {}, annotations: {} };
 // ─── File paths ───────────────────────────────────────────────────────────────
 
 export const STORE_DIR = '.ng-annotate';
-// NG_ANNOTATE_PROJECT_ROOT lets the MCP server find the store even when its
-// working directory differs from the Angular project root (e.g. when spawned
-// by VS Code Copilot or Claude Code from a non-project cwd).
-const PROJECT_ROOT = process.env.NG_ANNOTATE_PROJECT_ROOT ?? process.cwd();
+
+/**
+ * Walk up from startDir until we find a .git folder; return that dir or startDir.
+ * Mirrors the same logic in the Angular builder so both always agree on where
+ * to write/read the store, regardless of which directory VS Code or Claude Code
+ * happens to be opened in.
+ */
+function findGitRoot(startDir: string): string {
+  let dir = path.resolve(startDir);
+  let parent = path.dirname(dir);
+  while (parent !== dir) {
+    if (fs.existsSync(path.join(dir, '.git'))) return dir;
+    dir = parent;
+    parent = path.dirname(dir);
+  }
+  return startDir;
+}
+
+// NG_ANNOTATE_PROJECT_ROOT: explicit override (set by ng add schematic or user).
+// When absent, walk up to the nearest .git root so the MCP server and the
+// Angular builder always use the same canonical store location.
+export const PROJECT_ROOT =
+  process.env.NG_ANNOTATE_PROJECT_ROOT ?? findGitRoot(process.cwd());
 export const STORE_PATH = path.join(PROJECT_ROOT, STORE_DIR, 'store.json');
 
 // ─── Store init ───────────────────────────────────────────────────────────────

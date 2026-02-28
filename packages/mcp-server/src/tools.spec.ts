@@ -362,8 +362,11 @@ describe('watch_annotations', () => {
 
     expect(elapsed).toBeGreaterThan(250);
     expect(elapsed).toBeLessThan(800);
-    const data = parseResult(result) as { status: string };
+    const data = parseResult(result) as { status: string; storePath: string; activeSessions: number; hint: string };
     expect(data.status).toBe('timeout');
+    expect(typeof data.storePath).toBe('string');
+    expect(typeof data.activeSessions).toBe('number');
+    expect(typeof data.hint).toBe('string');
   }, 5000);
 
   it('returns early when annotation is created during wait', async () => {

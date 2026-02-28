@@ -51,6 +51,8 @@ const config = tseslint.config(
       'packages/*/schematics/**',
       // Vitest config files are not included in tsconfigs and don't need type-checked linting
       '**/vitest.config.ts',
+      // Spec files are excluded from tsconfigs — skip project-service linting for them
+      'packages/*/src/**/*.spec.ts',
     ],
   },
 );

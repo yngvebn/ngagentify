@@ -1,6 +1,6 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { store } from './store.js';
+import { store, STORE_PATH } from './store.js';
 import type { Annotation } from './store.js';
 
 // ─── Response helpers ─────────────────────────────────────────────────────────
@@ -258,6 +258,20 @@ export function registerTools(server: McpServer): void {
           resolve({ status: 'timeout' });
         }, timeout);
       });
+
+      if (result.status === 'timeout') {
+        const sessions = await store.listSessions();
+        const activeSessions = sessions.filter((s) => s.active);
+        return json({
+          status: 'timeout',
+          storePath: STORE_PATH,
+          activeSessions: activeSessions.length,
+          hint:
+            activeSessions.length === 0
+              ? 'No browser sessions connected. Open the app in the browser and make sure ng serve is running with the @ng-annotate/angular:dev-server builder.'
+              : `${String(activeSessions.length)} browser session(s) connected. Press Alt+Shift+A in the browser to enter inspect mode, then click a component to annotate it. Call watch_annotations again to continue polling.`,
+        });
+      }
 
       return json(result);
     },
