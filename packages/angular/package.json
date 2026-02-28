@@ -1,9 +1,17 @@
 {
   "name": "@ng-annotate/angular",
-  "version": "0.1.6",
+  "version": "0.2.6",
   "schematics": "./schematics/collection.json",
   "description": "Angular library for ng-annotate-mcp — browser overlay for annotating components and routing instructions to an AI agent",
-  "keywords": ["angular", "mcp", "ai", "devtools", "ng-annotate", "ng-add", "schematics"],
+  "keywords": [
+    "angular",
+    "mcp",
+    "ai",
+    "devtools",
+    "ng-annotate",
+    "ng-add",
+    "schematics"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/yngvebn/ngagentify"

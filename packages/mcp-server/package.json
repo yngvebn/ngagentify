@@ -1,12 +1,20 @@
 {
   "name": "@ng-annotate/mcp-server",
-  "version": "0.1.6",
+  "version": "0.2.6",
   "type": "module",
   "bin": {
     "ng-annotate-mcp": "bin/ng-annotate-mcp.js"
   },
   "description": "MCP server for ng-annotate-mcp — exposes Angular browser annotations as MCP tools for AI agents",
-  "keywords": ["angular", "mcp", "mcp-server", "ai", "claude", "devtools", "ng-annotate"],
+  "keywords": [
+    "angular",
+    "mcp",
+    "mcp-server",
+    "ai",
+    "claude",
+    "devtools",
+    "ng-annotate"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/yngvebn/ngagentify"
