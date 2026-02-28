@@ -62,6 +62,31 @@ No template changes needed — the overlay is injected automatically.
 }
 ```
 
+## Usage
+
+Once installed, the workflow is:
+
+**1. Start the dev server**
+```bash
+npm run dev
+```
+
+**2. Start the agent polling loop**
+
+Open the project in Claude Code and tell it to start watching:
+
+> "Start the ng-annotate polling loop"
+
+The agent will call `get_all_pending`, process any queued annotations, then enter a `watch_annotations` loop waiting for new ones. It runs until you end the conversation.
+
+> **Claude Code users:** `CLAUDE.md` in your project root contains the full agent instructions. The agent will follow them automatically — just start a conversation and ask it to begin polling.
+
+**3. Annotate in the browser**
+
+Open `localhost:4200`, press `Alt+Shift+A` to enter inspect mode, click a component, type your instruction, and submit. The agent picks it up within seconds, edits the file, and the browser hot-reloads.
+
+---
+
 ## Keyboard shortcuts
 
 | Shortcut | Action |
