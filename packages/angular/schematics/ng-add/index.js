@@ -95,7 +95,14 @@ function addVitePlugin() {
             return;
         }
         content = insertAfterLastImport(content, "import { ngAnnotateMcp } from '@ng-annotate/vite-plugin';");
-        content = content.replace(/plugins\s*:\s*\[/, 'plugins: [...ngAnnotateMcp(), ');
+        if (/plugins\s*:\s*\[/.test(content)) {
+            // Existing plugins array — prepend into it
+            content = content.replace(/plugins\s*:\s*\[/, 'plugins: [...ngAnnotateMcp(), ');
+        }
+        else {
+            // No plugins array — inject one into defineConfig({...})
+            content = content.replace(/defineConfig\(\s*\{/, 'defineConfig({\n  plugins: [...ngAnnotateMcp()],');
+        }
         tree.overwrite(viteConfigPath, content);
         context.logger.info(`✅ Added ngAnnotateMcp() to ${viteConfigPath}`);
     };
