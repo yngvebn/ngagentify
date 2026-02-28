@@ -2,12 +2,15 @@
   "name": "@ng-annotate/vite-plugin",
   "version": "0.1.6",
   "type": "module",
+  "description": "Vite plugin for ng-annotate-mcp — WebSocket annotation bridge and component manifest for Angular dev tooling",
+  "keywords": ["angular", "vite", "vite-plugin", "mcp", "ai", "devtools", "ng-annotate"],
   "repository": {
     "type": "git",
     "url": "https://github.com/yngvebn/ngagentify"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
