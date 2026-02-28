@@ -32,7 +32,7 @@
     "angular-eslint": "21.2.0",
     "eslint": "^9.39.2",
     "jsdom": "^28.0.0",
-    "ng-annotate-mcp": "*",
+    "@ng-annotate/vite-plugin": "*",
     "prettier": "^3.8.1",
     "typescript": "~5.9.2",
     "typescript-eslint": "8.50.1",

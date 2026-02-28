@@ -9,7 +9,7 @@ function addVitePlugin(): Rule {
     if (!viteConfigPath) {
       context.logger.warn(
         '⚠️  Could not find vite.config.ts — add the plugin manually:\n' +
-          "    import { ngAnnotateMcp } from 'ng-annotate-mcp';\n" +
+          "    import { ngAnnotateMcp } from '@ng-annotate/vite-plugin';\n" +
           '    plugins: [...ngAnnotateMcp()]',
       );
       return;
@@ -17,15 +17,15 @@ function addVitePlugin(): Rule {
 
     let content = tree.read(viteConfigPath)!.toString('utf-8');
 
-    if (content.includes('ng-annotate-mcp')) {
-      context.logger.info('ng-annotate-mcp vite plugin already present, skipping.');
+    if (content.includes('@ng-annotate/vite-plugin')) {
+      context.logger.info('@ng-annotate/vite-plugin vite plugin already present, skipping.');
       return;
     }
 
     // Insert import after the last existing import line
     content = content.replace(
       /(^import .+$(\r?\n)?)+/m,
-      (match) => match + "import { ngAnnotateMcp } from 'ng-annotate-mcp';\n",
+      (match) => match + "import { ngAnnotateMcp } from '@ng-annotate/vite-plugin';\n",
     );
 
     // Insert spread into plugins array (handles `plugins: [` or `plugins:[`)
@@ -107,18 +107,18 @@ function addDevDependency(): Rule {
     >;
     pkg['devDependencies'] ??= {};
 
-    if (!pkg['devDependencies']['ng-annotate-mcp']) {
-      pkg['devDependencies']['ng-annotate-mcp'] = 'latest';
+    if (!pkg['devDependencies']['@ng-annotate/vite-plugin']) {
+      pkg['devDependencies']['@ng-annotate/vite-plugin'] = 'latest';
       tree.overwrite(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
       context.addTask(new NodePackageInstallTask());
-      context.logger.info('✅ Added ng-annotate-mcp to devDependencies');
+      context.logger.info('✅ Added @ng-annotate/vite-plugin to devDependencies');
     }
   };
 }
 
 export default function (): Rule {
   return (tree: Tree, context: SchematicContext) => {
-    context.logger.info('Setting up ng-annotate-mcp...');
+    context.logger.info('Setting up @ng-annotate/vite-plugin...');
     return chain([addDevDependency(), addVitePlugin(), addProviders(), addMcpConfig()])(
       tree,
       context,

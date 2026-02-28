@@ -23,13 +23,13 @@ That's it. The schematic configures everything automatically:
 ## Manual install
 
 ```bash
-npm install @ng-annotate/angular ng-annotate-mcp --save-dev
+npm install @ng-annotate/angular @ng-annotate/vite-plugin --save-dev
 ```
 
 **`vite.config.ts`**
 ```ts
 import { defineConfig } from 'vite';
-import { ngAnnotateMcp } from 'ng-annotate-mcp';
+import { ngAnnotateMcp } from '@ng-annotate/vite-plugin';
 
 export default defineConfig({
   plugins: [...ngAnnotateMcp()],
@@ -102,7 +102,7 @@ Open `localhost:4200`, press `Alt+Shift+A` to enter inspect mode, click a compon
 | Package | Purpose |
 |---|---|
 | `@ng-annotate/angular` | Angular library (overlay UI, bridge service) |
-| `ng-annotate-mcp` | Vite plugin (WebSocket server, component manifest) |
+| `@ng-annotate/vite-plugin` | Vite plugin (WebSocket server, component manifest) |
 | `@ng-annotate/mcp-server` | MCP server exposing tools to the AI agent |
 
 ## Dev
