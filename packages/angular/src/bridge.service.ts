@@ -24,7 +24,7 @@ export class BridgeService implements OnDestroy {
   }
 
   private connect(): void {
-    const wsUrl = `ws://${location.host}/__annotate`;
+    const wsUrl = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/__annotate`;
     this.ws = new WebSocket(wsUrl);
 
     this.ws.onopen = () => {
