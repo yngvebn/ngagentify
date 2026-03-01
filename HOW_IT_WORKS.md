@@ -99,6 +99,8 @@ private findNearestComponent(element: Element): unknown {
 }
 ```
 
+The manual walk using `ng.getComponent` is deliberate. Angular also exposes `ng.getOwningComponent(el)`, which returns the component whose *template* contains `el` — the parent's perspective. That gives the wrong answer when the user clicks a component's own host element: `getOwningComponent(<app-card>)` returns the parent that placed `<app-card>` in its template, not `AppCard` itself. `getComponent` only returns non-null when `el` is a component host element, so walking up the DOM stops at the exact component the developer clicked on.
+
 Once a component instance is found, the service extracts:
 
 - **`componentName`** — the class name from `component.constructor.name`
