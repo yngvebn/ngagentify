@@ -1,6 +1,6 @@
 {
   "name": "@ng-annotate/vite-plugin",
-  "version": "0.5.15",
+  "version": "0.5.16",
   "type": "module",
   "description": "Vite plugin for ng-annotate-mcp — WebSocket annotation bridge and component manifest for Angular dev tooling",
   "keywords": [
