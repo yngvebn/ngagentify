@@ -6,8 +6,12 @@ export interface ManifestEntry {
   template?: string;
 }
 
-export function createManifestPlugin(): Plugin {
-  const manifest: Record<string, ManifestEntry> = {};
+/**
+ * Incrementally builds the component manifest as Vite transforms TypeScript files.
+ * Accepts a shared manifest object that is mutated in place, so the WS handler
+ * and HTTP endpoint always see the latest state.
+ */
+export function createManifestPlugin(manifest: Record<string, ManifestEntry>): Plugin {
   let projectRoot = '';
 
   return {
@@ -42,7 +46,8 @@ export function createManifestPlugin(): Plugin {
     },
 
     transformIndexHtml(html: string) {
-      const scriptTag = `<script>window.__NG_ANNOTATE_MANIFEST__ = ${JSON.stringify(manifest)};</script>`;
+      // Inject an empty placeholder; the real manifest arrives via manifest:update on WS connect.
+      const scriptTag = `<script>window.__NG_ANNOTATE_MANIFEST__ = {};</script>`;
       return html.replace('</head>', `  ${scriptTag}\n</head>`);
     },
   };

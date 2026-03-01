@@ -14,6 +14,18 @@ npm run dev          # start Angular dev server at localhost:4200
 
 The MCP server is automatically started by Claude Code via `.mcp.json` using `tsx` (no compile step needed).
 
+## Releasing
+
+**Never run `npm publish` directly.** Publishing is handled by GitHub Actions on tag push.
+
+To cut a release, only ever use the release script:
+
+```bash
+npm run release patch   # or minor / major
+```
+
+This bumps all package versions, commits, tags, and pushes. GitHub Actions picks up the tag and publishes to npm automatically.
+
 ## Store File
 
 The annotation store lives at `.ng-annotate/store.json` in the repo root. It is shared between the Vite plugin (via WebSocket) and the MCP server. It is gitignored.

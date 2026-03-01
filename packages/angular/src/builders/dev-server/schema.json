@@ -102,6 +102,11 @@
         { "type": "boolean" }
       ]
     },
+    "ngAnnotateDebug": {
+      "type": "boolean",
+      "description": "Enable verbose debug logging for the ng-annotate dev-server builder (store, manifest, WebSocket, file watcher).",
+      "default": false
+    },
     "prebundle": {
       "description": "Enable and control the Vite-based development server's prebundling capabilities.",
       "default": true,

@@ -17,7 +17,7 @@ function safeSend(ws: WebSocket, data: unknown): void {
   ws.send(JSON.stringify(data), (err) => { if (err) { /* connection closed mid-send */ } });
 }
 
-export function createWsHandler(server: ViteDevServer): void {
+export function createWsHandler(server: ViteDevServer, getManifest: () => Record<string, unknown>): void {
   const wss = new WebSocketServer({ noServer: true });
   const sessionSockets = new Map<string, WebSocket>();
 
@@ -40,6 +40,7 @@ export function createWsHandler(server: ViteDevServer): void {
         const session = await store.createSession({ active: true, url: referer });
         sessionId = session.id;
         safeSend(ws, { type: 'session:created', session });
+        safeSend(ws, { type: 'manifest:update', manifest: getManifest() });
         sessionSockets.set(sessionId, ws);
       } catch (err) {
         server.config.logger.error(`[ng-annotate] Failed to create session: ${String(err)}`);

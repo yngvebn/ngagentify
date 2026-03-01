@@ -158,7 +158,6 @@ function writeOutsideTree(absPath: string, content: string, context: SchematicCo
 function addMcpConfig(options: Options): Rule {
   return (tree: Tree, context: SchematicContext) => {
     const projectRoot = process.cwd();
-    const env = { NG_ANNOTATE_PROJECT_ROOT: projectRoot.replace(/\\/g, '/') };
     const isWindows = process.platform === 'win32';
     const { aiTool } = options;
 
@@ -167,6 +166,12 @@ function addMcpConfig(options: Options): Rule {
     const gitRoot = findGitRoot(projectRoot);
     const isSubproject =
       gitRoot !== null && path.resolve(gitRoot) !== path.resolve(projectRoot);
+
+    // NG_ANNOTATE_PROJECT_ROOT must point to the git root (= store location),
+    // not the Angular project subdir. The builder also walks up to .git when
+    // writing the store, so both sides must agree on this directory.
+    const storeRoot = gitRoot ?? projectRoot;
+    const env = { NG_ANNOTATE_PROJECT_ROOT: storeRoot.replace(/\\/g, '/') };
 
     if (aiTool === 'other') {
       const claudeConfig = JSON.stringify(
@@ -309,17 +314,21 @@ function addEntryToGitignoreOutsideTree(
   entry: string,
   context: SchematicContext,
 ): void {
-  if (fs.existsSync(absPath)) {
-    const content = fs.readFileSync(absPath, 'utf-8');
-    if (content.includes(entry)) {
-      context.logger.info(`${entry} already in root .gitignore, skipping.`);
-      return;
+  try {
+    if (fs.existsSync(absPath)) {
+      const content = fs.readFileSync(absPath, 'utf-8');
+      if (content.includes(entry)) {
+        context.logger.info(`${entry} already in root .gitignore, skipping.`);
+        return;
+      }
+      fs.writeFileSync(absPath, content.trimEnd() + '\n\n' + entry + '\n', 'utf-8');
+      context.logger.info(`✅ Added ${entry} to root .gitignore (${absPath})`);
+    } else {
+      fs.writeFileSync(absPath, entry + '\n', 'utf-8');
+      context.logger.info(`✅ Created .gitignore with ${entry} at repository root (${absPath})`);
     }
-    fs.writeFileSync(absPath, content.trimEnd() + '\n\n' + entry + '\n', 'utf-8');
-    context.logger.info(`✅ Added ${entry} to root .gitignore`);
-  } else {
-    fs.writeFileSync(absPath, entry + '\n', 'utf-8');
-    context.logger.info(`✅ Created .gitignore with ${entry} at repository root`);
+  } catch (err) {
+    context.logger.warn(`⚠️  Could not update root .gitignore at ${absPath}: ${String(err)}`);
   }
 }
 
@@ -330,6 +339,10 @@ function addGitignore(): Rule {
     const gitRoot = findGitRoot(projectRoot);
     const isSubproject =
       gitRoot !== null && path.resolve(gitRoot) !== path.resolve(projectRoot);
+
+    context.logger.info(
+      `ng-annotate gitignore: projectRoot=${projectRoot}, gitRoot=${gitRoot ?? 'none'}, isSubproject=${String(isSubproject)}`,
+    );
 
     // Always update the Angular project's .gitignore via the Tree (supports --dry-run).
     const gitignorePath = '.gitignore';
