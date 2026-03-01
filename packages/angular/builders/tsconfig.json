@@ -11,5 +11,6 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["../src/builders/**/*.ts", "../src/builders/**/*.json"]
+  "include": ["../src/builders/**/*.ts", "../src/builders/**/*.json"],
+  "exclude": ["../src/builders/**/*.spec.ts"]
 }
