@@ -40,8 +40,8 @@
     "build:watch": "ng-packagr -p ng-package.json --watch",
     "build:schematics": "tsc -p schematics/tsconfig.json",
     "build:builders": "tsc -p builders/tsconfig.json && node -e \"require('fs').cpSync('src/builders/dev-server/schema.json','dist/builders/dev-server/schema.json')\"",
-    "test": "vitest run schematics",
-    "test:watch": "vitest schematics",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix"
   },

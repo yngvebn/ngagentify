@@ -14,7 +14,7 @@ interface NgAnnotateDevServerOptions extends DevServerBuilderOptions {
 
 // ─── Logging ──────────────────────────────────────────────────────────────────
 
-function makeLogger(debug: boolean) {
+export function makeLogger(debug: boolean) {
   return {
     info: (msg: string) => process.stderr.write(`[ng-annotate] ${msg}\n`),
     debug: (msg: string) => { if (debug) process.stderr.write(`[ng-annotate:debug] ${msg}\n`); },
@@ -26,7 +26,7 @@ function makeLogger(debug: boolean) {
 const STORE_DIR = '.ng-annotate';
 
 /** Walk up from startDir until we find a .git folder; return that dir or startDir. */
-function findStoreRoot(startDir: string): string {
+export function findStoreRoot(startDir: string): string {
   let dir = path.resolve(startDir);
   let parent = path.dirname(dir);
   while (parent !== dir) {
@@ -171,7 +171,7 @@ interface ManifestEntry {
  * Find the tsconfig used for the project build, by reading angular.json.
  * Falls back to tsconfig.app.json or tsconfig.json in the workspace root.
  */
-function findTsConfig(workspaceRoot: string, projectName: string | undefined, log: Logger): string | undefined {
+export function findTsConfig(workspaceRoot: string, projectName: string | undefined, log: Logger): string | undefined {
   const angularJsonPath = path.join(workspaceRoot, 'angular.json');
   if (fs.existsSync(angularJsonPath) && projectName) {
     try {
@@ -203,10 +203,16 @@ function findTsConfig(workspaceRoot: string, projectName: string | undefined, lo
  * resolved file list. Respects include/exclude/files settings — no hardcoded
  * directory conventions.
  */
-function buildManifest(tsConfigPath: string, workspaceRoot: string, log: Logger): Record<string, ManifestEntry> {
+export function buildManifest(tsConfigPath: string, workspaceRoot: string, log: Logger): Record<string, ManifestEntry> {
   const manifest: Record<string, ManifestEntry> = {};
 
-  const readResult = ts.readConfigFile(tsConfigPath, (f) => ts.sys.readFile(f));
+  let readResult: ReturnType<typeof ts.readConfigFile>;
+  try {
+    readResult = ts.readConfigFile(tsConfigPath, (f) => ts.sys.readFile(f));
+  } catch (err) {
+    log.debug(`ts.readConfigFile threw: ${String(err)}`);
+    return manifest;
+  }
   if (readResult.error) {
     log.debug(`ts.readConfigFile error: ${ts.flattenDiagnosticMessageText(readResult.error.messageText, '\n')}`);
     return manifest;
