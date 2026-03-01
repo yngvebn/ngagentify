@@ -112,22 +112,11 @@ describe('ng-add schematic — addDevDependency', () => {
     expect(parsed['dependencies']['@ng-annotate/angular']).toBeUndefined();
   });
 
-  it('adds @ng-annotate/mcp-server to devDependencies', async () => {
+  it('does not add @ng-annotate/mcp-server to devDependencies', async () => {
     const tree = makeTree({ 'package.json': BASE_PKG });
     const result = await runSchematic(tree);
     const parsed = JSON.parse(result.readText('package.json')) as Record<string, Record<string, string>>;
-    expect(parsed['devDependencies']['@ng-annotate/mcp-server']).toBe('latest');
-  });
-
-  it('skips @ng-annotate/mcp-server if already present', async () => {
-    const pkg = JSON.stringify({
-      dependencies: { '@angular/core': '^21.0.0' },
-      devDependencies: { '@ng-annotate/mcp-server': '^0.4.0' },
-    });
-    const tree = makeTree({ 'package.json': pkg });
-    const result = await runSchematic(tree);
-    const parsed = JSON.parse(result.readText('package.json')) as Record<string, Record<string, string>>;
-    expect(parsed['devDependencies']['@ng-annotate/mcp-server']).toBe('^0.4.0');
+    expect(parsed['devDependencies']['@ng-annotate/mcp-server']).toBeUndefined();
   });
 });
 
