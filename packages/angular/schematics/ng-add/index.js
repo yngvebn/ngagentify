@@ -261,11 +261,6 @@ function addDevDependency() {
             changed = true;
             context.logger.info('✅ Moved @ng-annotate/angular to devDependencies');
         }
-        if (!pkg['devDependencies']['@ng-annotate/mcp-server']) {
-            pkg['devDependencies']['@ng-annotate/mcp-server'] = 'latest';
-            changed = true;
-            context.logger.info('✅ Added @ng-annotate/mcp-server to devDependencies');
-        }
         if (changed) {
             tree.overwrite(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
             context.addTask(new tasks_1.NodePackageInstallTask());
