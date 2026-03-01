@@ -56,7 +56,7 @@ interface Annotation {
   id: string;
   sessionId: string;
   createdAt: string;
-  status: 'pending' | 'acknowledged' | 'resolved' | 'dismissed';
+  status: 'pending' | 'acknowledged' | 'diff_proposed' | 'resolved' | 'dismissed';
   replies: AnnotationReply[];
   [key: string]: unknown;
 }
@@ -155,6 +155,20 @@ function makeStore(projectRoot: string, log: Logger) {
         return data;
       });
       log.debug(`reply added to annotation ${annotationId} by ${reply.author}`);
+      return result;
+    },
+
+    async updateAnnotation(id: string, patch: Partial<Annotation>): Promise<Annotation | undefined> {
+      let result: Annotation | undefined;
+      await withLock<StoreData>((data) => {
+        const existing = data.annotations[id];
+        if (!existing) return data;
+        const updated: Annotation = { ...existing, ...patch, id };
+        data.annotations[id] = updated;
+        result = updated;
+        return data;
+      });
+      log.debug(`annotation updated: ${id} patch=${JSON.stringify(patch)}`);
       return result;
     },
   };
@@ -304,6 +318,12 @@ function createAnnotateWsHandler(
             } else if (msg.type === 'annotation:reply' && msg.id && msg.message) {
               const updated = await store.addReply(msg.id, { author: 'user', message: msg.message });
               if (updated) safeSend(ws, { type: 'annotation:updated', annotation: updated });
+            } else if (msg.type === 'diff:approved' && msg.id) {
+              await store.updateAnnotation(msg.id, { diffResponse: 'approved' });
+              log.debug(`diff approved for annotation ${msg.id}`);
+            } else if (msg.type === 'diff:rejected' && msg.id) {
+              await store.updateAnnotation(msg.id, { diffResponse: 'rejected' });
+              log.debug(`diff rejected for annotation ${msg.id}`);
             }
           } catch (err) {
             log.info(`Failed to process message: ${String(err)}`);

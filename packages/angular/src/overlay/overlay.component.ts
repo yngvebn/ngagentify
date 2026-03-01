@@ -14,7 +14,7 @@ import { InspectorService } from '../inspector.service';
 import { BridgeService } from '../bridge.service';
 import type { Annotation, ComponentContext, AnnotationStatus } from '../types';
 
-type OverlayMode = 'hidden' | 'inspect' | 'annotate' | 'thread';
+type OverlayMode = 'hidden' | 'inspect' | 'annotate' | 'thread' | 'preview';
 
 interface HighlightRect {
   top: string;
@@ -102,8 +102,31 @@ interface AnnotationBadge {
     }
     .nga-badge--pending { background: #3b82f6; color: #ffffff; }
     .nga-badge--acknowledged { background: #f59e0b; color: #ffffff; }
+    .nga-badge--diff_proposed { background: #8b5cf6; color: #ffffff; }
     .nga-badge--resolved { background: #22c55e; color: #ffffff; }
     .nga-badge--dismissed { background: #94a3b8; color: #ffffff; }
+    .nga-preview-panel {
+      pointer-events: all; position: fixed; right: 16px; top: 50%;
+      transform: translateY(-50%); background: #ffffff; border: 1px solid #e2e8f0;
+      border-radius: 8px; box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+      padding: 16px; min-width: 480px; max-width: 600px;
+    }
+    .nga-preview-subtitle {
+      font-size: 12px; color: #475569; margin: 0 0 10px;
+    }
+    .nga-diff {
+      font-family: monospace; font-size: 12px; overflow-x: auto;
+      max-height: 380px; overflow-y: auto; border: 1px solid #e2e8f0;
+      border-radius: 4px; margin-bottom: 12px;
+    }
+    .nga-diff-line {
+      display: block; padding: 1px 8px; white-space: pre; line-height: 1.5;
+    }
+    .nga-diff-line--add { background: rgba(34,197,94,0.12); color: #166534; }
+    .nga-diff-line--remove { background: rgba(239,68,68,0.12); color: #991b1b; }
+    .nga-diff-line--hunk { background: rgba(59,130,246,0.08); color: #1e40af; }
+    .nga-btn-approve { background: #22c55e; color: #ffffff; }
+    .nga-btn-reject { background: #ef4444; color: #ffffff; }
     .nga-keyboard-hint {
       pointer-events: none; position: fixed; bottom: 16px; right: 16px;
       background: rgba(15,23,42,0.7); color: #f8fafc; font-size: 12px;
@@ -180,6 +203,26 @@ interface AnnotationBadge {
       </div>
     }
 
+    <!-- Diff preview panel -->
+    @if (mode === 'preview' && diffAnnotation !== null) {
+      <div class="nga-preview-panel">
+        <h3 class="nga-panel-title">{{ diffAnnotation.componentName }}</h3>
+        <p class="nga-preview-subtitle">Review proposed changes — Apply or Reject:</p>
+
+        <div class="nga-diff">
+          @for (line of diffLines(); track $index) {
+            <span class="nga-diff-line nga-diff-line--{{ line.type }}">{{ line.text }}</span>
+          }
+        </div>
+
+        <div class="nga-actions">
+          <button class="nga-btn nga-btn-approve" (click)="approveDiff()">Apply</button>
+          <button class="nga-btn nga-btn-reject" (click)="rejectDiff()">Reject</button>
+          <button class="nga-btn nga-btn-cancel" (click)="closePreview()">Close</button>
+        </div>
+      </div>
+    }
+
     <!-- Thread panel -->
     @if (mode === 'thread' && threadAnnotation !== null) {
       <div class="nga-thread-panel">
@@ -235,6 +278,7 @@ export class OverlayComponent implements OnInit {
   annotationText = '';
   selectionText = '';
   threadAnnotation: Annotation | null = null;
+  diffAnnotation: Annotation | null = null;
   replyText = '';
   badges: AnnotationBadge[] = [];
 
@@ -245,6 +289,25 @@ export class OverlayComponent implements OnInit {
   ngOnInit(): void {
     this.bridge.annotations$.subscribe((annotations) => {
       this.updateBadges(annotations);
+
+      if (this.threadAnnotation) {
+        const threadId = this.threadAnnotation.id;
+        const updated = annotations.find((a) => a.id === threadId);
+        if (updated) {
+          this.threadAnnotation = updated;
+          if (updated.status === 'diff_proposed' && updated.diff && this.mode === 'thread') {
+            this.diffAnnotation = updated;
+            this.mode = 'preview';
+          }
+        }
+      }
+
+      if (this.diffAnnotation) {
+        const diffId = this.diffAnnotation.id;
+        const updated = annotations.find((a) => a.id === diffId);
+        if (updated) this.diffAnnotation = updated;
+      }
+
       this.cdr.markForCheck();
     });
   }
@@ -263,6 +326,7 @@ export class OverlayComponent implements OnInit {
     if (this.mode === 'annotate') this.mode = 'inspect';
     else if (this.mode === 'inspect') this.mode = 'hidden';
     else if (this.mode === 'thread') this.mode = 'hidden';
+    else if (this.mode === 'preview') this.mode = 'hidden';
     this.cdr.markForCheck();
   }
 
@@ -335,8 +399,13 @@ export class OverlayComponent implements OnInit {
   }
 
   openThread(annotation: Annotation): void {
-    this.threadAnnotation = annotation;
-    this.mode = 'thread';
+    if (annotation.status === 'diff_proposed' && annotation.diff) {
+      this.diffAnnotation = annotation;
+      this.mode = 'preview';
+    } else {
+      this.threadAnnotation = annotation;
+      this.mode = 'thread';
+    }
     this.cdr.markForCheck();
   }
 
@@ -346,11 +415,43 @@ export class OverlayComponent implements OnInit {
     this.cdr.markForCheck();
   }
 
+  approveDiff(): void {
+    if (!this.diffAnnotation) return;
+    this.bridge.approveDiff(this.diffAnnotation.id);
+    this.diffAnnotation = null;
+    this.mode = 'hidden';
+    this.cdr.markForCheck();
+  }
+
+  rejectDiff(): void {
+    if (!this.diffAnnotation) return;
+    this.bridge.rejectDiff(this.diffAnnotation.id);
+    this.diffAnnotation = null;
+    this.mode = 'hidden';
+    this.cdr.markForCheck();
+  }
+
+  closePreview(): void {
+    this.diffAnnotation = null;
+    this.mode = 'hidden';
+    this.cdr.markForCheck();
+  }
+
   sendReply(): void {
     if (!this.threadAnnotation || !this.replyText.trim()) return;
     this.bridge.replyToAnnotation(this.threadAnnotation.id, this.replyText.trim());
     this.replyText = '';
     this.cdr.markForCheck();
+  }
+
+  diffLines(): { type: string; text: string }[] {
+    if (!this.diffAnnotation?.diff) return [];
+    return this.diffAnnotation.diff.split('\n').map((text) => {
+      if (text.startsWith('@@')) return { type: 'hunk', text };
+      if (text.startsWith('+')) return { type: 'add', text };
+      if (text.startsWith('-')) return { type: 'remove', text };
+      return { type: 'context', text };
+    });
   }
 
   inputEntries(): { key: string; value: unknown }[] {
@@ -411,6 +512,7 @@ export class OverlayComponent implements OnInit {
     const icons: Record<AnnotationStatus, string> = {
       pending: '●',
       acknowledged: '◐',
+      diff_proposed: '◈',
       resolved: '✓',
       dismissed: '✕',
     };

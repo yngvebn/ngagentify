@@ -83,6 +83,14 @@ export class BridgeService implements OnDestroy {
     this.send({ type: 'annotation:delete', id });
   }
 
+  approveDiff(id: string): void {
+    this.send({ type: 'diff:approved', id });
+  }
+
+  rejectDiff(id: string): void {
+    this.send({ type: 'diff:rejected', id });
+  }
+
   private send(msg: Record<string, unknown>): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(msg));

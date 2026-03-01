@@ -40,16 +40,20 @@ Start the ng-annotate annotation work loop. Follow these steps continuously unti
 1. Call \`acknowledge\` with the annotation ID — immediately, before reading any files.
 2. Read \`componentFilePath\` and (if present) \`templateFilePath\` from the annotation data.
 3. Understand the intent: \`annotationText\` is the instruction; \`selectionText\` is the highlighted target (prefer this as the primary focus when present).
-4. Edit the component template, TypeScript, or SCSS as needed. Make minimal, targeted changes — do not refactor surrounding code.
-5. If the template change also requires a TypeScript change (e.g. adding a property), make both.
-6. Once the change is written to disk: call \`resolve\` with a one-sentence summary.
-7. If you need clarification: call \`reply\` with a question. Do NOT resolve yet.
+4. Compute the changes you intend to make but DO NOT write to disk yet.
+5. Build a unified diff of the proposed changes and call \`propose_diff\` with the annotation ID and diff string.
+6. Call \`watch_diff_response\` with the annotation ID and wait for the developer to approve or reject.
+   - If \`{"status":"approved"}\`: write the changes to disk, then call \`resolve\` with a one-sentence summary.
+   - If \`{"status":"rejected"}\`: call \`reply\` asking what to change, or revise and call \`propose_diff\` again.
+   - If \`{"status":"timeout"}\`: call \`reply\` letting the developer know you are still waiting.
+7. If you need clarification before proposing: call \`reply\` with a question. Do NOT propose or resolve yet.
 8. If the request is out of scope or not actionable: call \`dismiss\` with a reason.
 
 ## Rules
 - Always \`acknowledge\` before touching any files.
-- Never modify files without a corresponding annotation.
+- Never write files without a corresponding \`diff:approved\` response from the developer.
 - Never \`resolve\` until the change is actually written to disk.
+- Never modify files without a corresponding annotation.
 `;
 
 // ─── Tool and prompt registration ─────────────────────────────────────────────
@@ -212,6 +216,75 @@ export function registerTools(server: McpServer): void {
       const updated = await store.addReply(id, { author: 'agent', message });
       if (!updated) return error(`Failed to add reply to annotation: ${id}`);
       return json(updated);
+    },
+  );
+
+  // ── Diff preview tools ────────────────────────────────────────────────────
+
+  server.registerTool(
+    'propose_diff',
+    {
+      description:
+        'Propose a unified diff for the developer to review before applying. Transitions the annotation to diff_proposed status. Call this after acknowledge, before writing any files. Then call watch_diff_response to wait for developer approval or rejection.',
+      inputSchema: {
+        id: z.string().describe('Annotation ID'),
+        diff: z.string().describe('Unified diff string showing the proposed changes'),
+      },
+    },
+    async ({ id, diff }) => {
+      const annotation = await store.getAnnotation(id);
+      if (!annotation) return error(`Annotation not found: ${id}`);
+
+      const updated = await store.updateAnnotation(id, { status: 'diff_proposed', diff });
+      if (!updated) return error(`Failed to update annotation: ${id}`);
+      return json(updated);
+    },
+  );
+
+  server.registerTool(
+    'watch_diff_response',
+    {
+      description:
+        'Wait for the developer to approve or reject a proposed diff. Long-polls until the developer responds or the timeout is reached. Returns {status:"approved"|"rejected",annotation} or {status:"timeout"}. Default timeout is 5 minutes.',
+      inputSchema: {
+        id: z.string().describe('Annotation ID'),
+        timeoutMs: z
+          .number()
+          .optional()
+          .describe('Timeout in milliseconds (default: 300000 = 5 minutes)'),
+      },
+    },
+    async ({ id, timeoutMs }) => {
+      const timeout = timeoutMs ?? 300_000;
+
+      const existing = await store.getAnnotation(id);
+      if (!existing) return error(`Annotation not found: ${id}`);
+      if (existing.diffResponse) {
+        return json({ status: existing.diffResponse, annotation: existing });
+      }
+
+      const result = await new Promise<
+        | { status: 'approved' | 'rejected'; annotation: Annotation }
+        | { status: 'timeout' }
+      >((resolve) => {
+        const interval = setInterval(() => {
+          void (async () => {
+            const annotation = await store.getAnnotation(id);
+            if (annotation?.diffResponse) {
+              clearInterval(interval);
+              clearTimeout(timer);
+              resolve({ status: annotation.diffResponse, annotation });
+            }
+          })();
+        }, WATCH_POLL_INTERVAL_MS);
+
+        const timer = setTimeout(() => {
+          clearInterval(interval);
+          resolve({ status: 'timeout' });
+        }, timeout);
+      });
+
+      return json(result);
     },
   );
 

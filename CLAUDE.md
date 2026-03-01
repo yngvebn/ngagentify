@@ -44,17 +44,19 @@ The annotation store lives at `.ng-annotate/store.json` in the repo root. It is 
 1. **Acknowledge first**: call `acknowledge` with the annotation ID. Do this immediately, before reading any files.
 2. **Read the files**: use `componentFilePath` and (if present) `templateFilePath` from the annotation.
 3. **Understand the intent**: read `annotationText` and `selectionText` (prefer `selectionText` as the primary focus when present).
-4. **Make the change**: edit the component template, TypeScript, or SCSS as needed.
-   - If the template change also requires a TypeScript change (e.g. adding a property), make both.
-   - Make minimal, targeted edits — do not refactor surrounding code.
-5. **Resolve or reply**:
-   - If the change is written to disk: call `resolve` with a one-sentence summary.
-   - If you need clarification: call `reply` with a question. Do NOT resolve yet.
-   - If the request is outside scope or not actionable: call `dismiss` with a reason.
+4. **Compute changes but do NOT write to disk yet.** Determine what edits are needed.
+5. **Propose the diff**: call `propose_diff` with the annotation ID and a unified diff string of all intended changes.
+6. **Wait for approval**: call `watch_diff_response` with the annotation ID.
+   - `"approved"` → write the changes to disk, then call `resolve` with a one-sentence summary.
+   - `"rejected"` → call `reply` asking what to revise, or propose an updated diff.
+   - `"timeout"` → call `reply` to let the developer know you are still waiting.
+7. **Clarification**: if you need more information before proposing, call `reply` with a question. Do NOT write files yet.
+8. **Out of scope**: call `dismiss` with a reason.
 
 ### Rules
 
 - **Always `acknowledge` before touching any files.** Never start editing without acknowledging first.
+- **Never write files without `diff:approved` from the developer.** Always go through `propose_diff` → `watch_diff_response` first.
 - **Never modify files without a corresponding annotation.** Only make changes the developer has explicitly requested via the overlay.
 - **Do not `resolve` until the change is actually written to disk.** If the edit fails, reply with the error instead.
 - **Use `selectionText` as the primary focus** when the developer highlighted specific text inside the component. The `annotationText` is the instruction; `selectionText` is the target.
@@ -77,6 +79,8 @@ This resets `demo/src/app/components/broken-card/` to its original broken state 
 | `get_all_pending` | All pending annotations (sorted oldest first) |
 | `get_pending` | Pending annotations for one session |
 | `acknowledge` | Mark pending → acknowledged |
+| `propose_diff` | Attach a unified diff for developer review (→ diff_proposed) |
+| `watch_diff_response` | Long-poll (5 min) for developer approval or rejection |
 | `resolve` | Mark as resolved (with optional summary) |
 | `dismiss` | Dismiss with a required reason |
 | `reply` | Add agent reply (for clarification) |

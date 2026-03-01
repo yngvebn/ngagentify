@@ -1,18 +1,23 @@
 # Planning Board
 
-**Last Updated**: 2026-02-27
+**Last Updated**: 2026-03-01
 
-**Context**: ✅ ALL PHASES COMPLETE
-- **Backlog**: 0 issues remaining
+**Context**: ✅ ALL PHASES COMPLETE + 1 bonus feature shipped
+- **Backlog**: 3 issues (features 2–4)
 - **In Progress**: 0 items
-- **Done folder**: 67 items ✅
-- **Focus**: All 10 phases complete — project is ready for use
+- **Done folder**: 68 items ✅
+- **Focus**: Diff preview before apply shipped in v0.6.0
 
 ---
 
 ## Current Priorities
 
-All 67 issues are complete. The full ng-annotate-mcp toolchain is implemented:
+### Next: Feature #2 — Screenshot Capture
+**Issue**: `backlog/2-FEATURE-screenshot-capture.md`
+
+---
+
+All 67 original issues are complete. The full ng-annotate-mcp toolchain is implemented:
 - Monorepo scaffold with npm workspaces
 - ESLint + pre-commit hooks
 - File-based annotation store + MCP server

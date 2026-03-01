@@ -245,3 +245,53 @@ function makeAnnotationPayload(sessionId: string) {
     annotationText: 'Fix the typo',
   };
 }
+
+// ── diff preview fields ───────────────────────────────────────────────────────
+
+describe('store: diff preview fields', () => {
+  it('createAnnotation does not set diff or diffResponse', async () => {
+    const store = await getStore();
+    const session = await store.createSession({ active: true, url: 'http://localhost:4200' });
+    const ann = await store.createAnnotation(makeAnnotationPayload(session.id));
+    expect(ann.diff).toBeUndefined();
+    expect(ann.diffResponse).toBeUndefined();
+  });
+
+  it('updateAnnotation can set diff and status diff_proposed', async () => {
+    const store = await getStore();
+    const session = await store.createSession({ active: true, url: 'http://localhost:4200' });
+    const ann = await store.createAnnotation(makeAnnotationPayload(session.id));
+    const diff = '--- a/test.ts\n+++ b/test.ts\n@@ -1 +1 @@\n-old\n+new';
+    const updated = await store.updateAnnotation(ann.id, { status: 'diff_proposed', diff });
+    expect(updated?.status).toBe('diff_proposed');
+    expect(updated?.diff).toBe(diff);
+  });
+
+  it('updateAnnotation can set diffResponse to approved', async () => {
+    const store = await getStore();
+    const session = await store.createSession({ active: true, url: 'http://localhost:4200' });
+    const ann = await store.createAnnotation(makeAnnotationPayload(session.id));
+    await store.updateAnnotation(ann.id, { status: 'diff_proposed', diff: '...' });
+    const updated = await store.updateAnnotation(ann.id, { diffResponse: 'approved' });
+    expect(updated?.diffResponse).toBe('approved');
+  });
+
+  it('updateAnnotation can set diffResponse to rejected', async () => {
+    const store = await getStore();
+    const session = await store.createSession({ active: true, url: 'http://localhost:4200' });
+    const ann = await store.createAnnotation(makeAnnotationPayload(session.id));
+    await store.updateAnnotation(ann.id, { status: 'diff_proposed', diff: '...' });
+    const updated = await store.updateAnnotation(ann.id, { diffResponse: 'rejected' });
+    expect(updated?.diffResponse).toBe('rejected');
+  });
+
+  it('diff_proposed is a valid listAnnotations status filter', async () => {
+    const store = await getStore();
+    const session = await store.createSession({ active: true, url: 'http://localhost:4200' });
+    const ann = await store.createAnnotation(makeAnnotationPayload(session.id));
+    await store.updateAnnotation(ann.id, { status: 'diff_proposed', diff: '...' });
+    const list = await store.listAnnotations(undefined, 'diff_proposed');
+    expect(list).toHaveLength(1);
+    expect(list[0].id).toBe(ann.id);
+  });
+});

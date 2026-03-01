@@ -10,7 +10,9 @@ const SYNC_INTERVAL_MS = 2000;
 type MessageType =
   | { type: 'annotation:create'; payload: Record<string, unknown> }
   | { type: 'annotation:reply'; id: string; message: string }
-  | { type: 'annotation:delete'; id: string };
+  | { type: 'annotation:delete'; id: string }
+  | { type: 'diff:approved'; id: string }
+  | { type: 'diff:rejected'; id: string };
 
 function safeSend(ws: WebSocket, data: unknown): void {
   if (ws.readyState !== WebSocket.OPEN) return;
@@ -66,6 +68,10 @@ export function createWsHandler(server: ViteDevServer, getManifest: () => Record
             } else if (msg.type === 'annotation:reply') {
               const annotation = await store.addReply(msg.id, { author: 'user', message: msg.message });
               if (annotation) safeSend(ws, { type: 'annotation:updated', annotation });
+            } else if (msg.type === 'diff:approved') {
+              await store.updateAnnotation(msg.id, { diffResponse: 'approved' });
+            } else if (msg.type === 'diff:rejected') {
+              await store.updateAnnotation(msg.id, { diffResponse: 'rejected' });
             } else {
               const annotation = await store.updateAnnotation(msg.id, { status: 'dismissed' });
               if (annotation) safeSend(ws, { type: 'annotation:updated', annotation });

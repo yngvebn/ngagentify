@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type AnnotationStatus = 'pending' | 'acknowledged' | 'resolved' | 'dismissed';
+export type AnnotationStatus = 'pending' | 'acknowledged' | 'diff_proposed' | 'resolved' | 'dismissed';
 
 export interface Session {
   id: string;
@@ -36,6 +36,8 @@ export interface Annotation {
   componentTreePath: string[];
   annotationText: string;
   selectionText?: string;
+  diff?: string;
+  diffResponse?: 'approved' | 'rejected';
 }
 
 // ─── Store shape ──────────────────────────────────────────────────────────────
