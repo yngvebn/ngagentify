@@ -135,3 +135,179 @@ test('badge appears after annotation is created', async ({ page }) => {
   // Badge should appear once the annotation is broadcast back via WebSocket
   await expect(page.locator('.nga-badge')).toBeVisible({ timeout: 5000 });
 });
+
+// ── diff preview flow ─────────────────────────────────────────────────────────
+
+test('diff preview panel appears when annotation has diff_proposed status', async ({ page }) => {
+  await page.goto('/');
+
+  // Create an annotation via the UI
+  await page.keyboard.press('Alt+Shift+A');
+  await page.click('app-simple-card');
+  await page.fill('.nga-textarea', 'E2E diff preview test');
+  await page.click('.nga-btn-submit');
+
+  // Wait for store entry
+  await expect
+    .poll(
+      () => {
+        try {
+          const data = readStore();
+          return Object.values(data.annotations).length;
+        } catch {
+          return 0;
+        }
+      },
+      { timeout: 5000 },
+    )
+    .toBeGreaterThan(0);
+
+  // Simulate agent proposing a diff by writing directly to store
+  const annotationId = Object.keys(readStore().annotations)[0];
+  const storePath = STORE_PATH;
+  const storeData = readStore();
+  const rawStore = JSON.parse(fs.readFileSync(storePath, 'utf8'));
+  rawStore.annotations[annotationId].status = 'diff_proposed';
+  rawStore.annotations[annotationId].diff =
+    '--- a/src/app/components/simple-card/simple-card.component.html\n' +
+    '+++ b/src/app/components/simple-card/simple-card.component.html\n' +
+    '@@ -1,3 +1,3 @@\n' +
+    ' <div class="card">\n' +
+    '-  <h2>Old Title</h2>\n' +
+    '+  <h2>New Title</h2>\n' +
+    ' </div>\n';
+  fs.writeFileSync(storePath, JSON.stringify(rawStore, null, 2), 'utf8');
+
+  // Wait for the 2-second sync to propagate and the badge to update to ◈
+  await expect
+    .poll(
+      () => page.locator('.nga-badge--diff_proposed').count(),
+      { timeout: 6000 },
+    )
+    .toBeGreaterThan(0);
+
+  // Click the badge to open the preview panel
+  await page.click('.nga-badge--diff_proposed');
+
+  const previewPanel = page.locator('.nga-preview-panel');
+  await expect(previewPanel).toBeVisible();
+  await expect(previewPanel).toContainText('SimpleCard');
+  await expect(previewPanel).toContainText('New Title');
+  await expect(previewPanel.locator('.nga-btn-approve')).toBeVisible();
+  await expect(previewPanel.locator('.nga-btn-reject')).toBeVisible();
+});
+
+test('approving a diff sends diff:approved to the store', async ({ page }) => {
+  await page.goto('/');
+
+  // Create annotation
+  await page.keyboard.press('Alt+Shift+A');
+  await page.click('app-simple-card');
+  await page.fill('.nga-textarea', 'E2E approve test');
+  await page.click('.nga-btn-submit');
+
+  await expect
+    .poll(
+      () => {
+        try {
+          return Object.values(readStore().annotations).length;
+        } catch {
+          return 0;
+        }
+      },
+      { timeout: 5000 },
+    )
+    .toBeGreaterThan(0);
+
+  // Simulate agent proposing a diff
+  const annotationId = Object.keys(readStore().annotations)[0];
+  const rawStore = JSON.parse(fs.readFileSync(STORE_PATH, 'utf8'));
+  rawStore.annotations[annotationId].status = 'diff_proposed';
+  rawStore.annotations[annotationId].diff =
+    '--- a/test.html\n+++ b/test.html\n@@ -1 +1 @@\n-old\n+new';
+  fs.writeFileSync(STORE_PATH, JSON.stringify(rawStore, null, 2), 'utf8');
+
+  // Wait for badge
+  await expect
+    .poll(() => page.locator('.nga-badge--diff_proposed').count(), { timeout: 6000 })
+    .toBeGreaterThan(0);
+
+  // Open preview and approve
+  await page.click('.nga-badge--diff_proposed');
+  await expect(page.locator('.nga-preview-panel')).toBeVisible();
+  await page.click('.nga-btn-approve');
+
+  // Preview panel should close
+  await expect(page.locator('.nga-preview-panel')).not.toBeVisible();
+
+  // Store should have diffResponse: approved
+  await expect
+    .poll(
+      () => {
+        try {
+          const data = JSON.parse(fs.readFileSync(STORE_PATH, 'utf8'));
+          return data.annotations[annotationId]?.diffResponse;
+        } catch {
+          return undefined;
+        }
+      },
+      { timeout: 5000 },
+    )
+    .toBe('approved');
+});
+
+test('rejecting a diff sends diff:rejected to the store', async ({ page }) => {
+  await page.goto('/');
+
+  // Create annotation
+  await page.keyboard.press('Alt+Shift+A');
+  await page.click('app-simple-card');
+  await page.fill('.nga-textarea', 'E2E reject test');
+  await page.click('.nga-btn-submit');
+
+  await expect
+    .poll(
+      () => {
+        try {
+          return Object.values(readStore().annotations).length;
+        } catch {
+          return 0;
+        }
+      },
+      { timeout: 5000 },
+    )
+    .toBeGreaterThan(0);
+
+  // Simulate agent proposing a diff
+  const annotationId = Object.keys(readStore().annotations)[0];
+  const rawStore = JSON.parse(fs.readFileSync(STORE_PATH, 'utf8'));
+  rawStore.annotations[annotationId].status = 'diff_proposed';
+  rawStore.annotations[annotationId].diff =
+    '--- a/test.html\n+++ b/test.html\n@@ -1 +1 @@\n-old\n+new';
+  fs.writeFileSync(STORE_PATH, JSON.stringify(rawStore, null, 2), 'utf8');
+
+  await expect
+    .poll(() => page.locator('.nga-badge--diff_proposed').count(), { timeout: 6000 })
+    .toBeGreaterThan(0);
+
+  // Open preview and reject
+  await page.click('.nga-badge--diff_proposed');
+  await expect(page.locator('.nga-preview-panel')).toBeVisible();
+  await page.click('.nga-btn-reject');
+
+  await expect(page.locator('.nga-preview-panel')).not.toBeVisible();
+
+  await expect
+    .poll(
+      () => {
+        try {
+          const data = JSON.parse(fs.readFileSync(STORE_PATH, 'utf8'));
+          return data.annotations[annotationId]?.diffResponse;
+        } catch {
+          return undefined;
+        }
+      },
+      { timeout: 5000 },
+    )
+    .toBe('rejected');
+});

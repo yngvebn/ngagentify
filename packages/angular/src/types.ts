@@ -1,4 +1,4 @@
-export type AnnotationStatus = 'pending' | 'acknowledged' | 'resolved' | 'dismissed';
+export type AnnotationStatus = 'pending' | 'acknowledged' | 'diff_proposed' | 'resolved' | 'dismissed';
 
 export interface AnnotationReply {
   id: string;
@@ -22,6 +22,8 @@ export interface Annotation {
   componentTreePath: string[];
   annotationText: string;
   selectionText?: string;
+  diff?: string;
+  diffResponse?: 'approved' | 'rejected';
 }
 
 export interface Session {

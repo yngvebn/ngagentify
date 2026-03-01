@@ -399,3 +399,94 @@ describe('watch_annotations', () => {
     expect(data.annotations.every((a) => a.sessionId === s1.id)).toBe(true);
   });
 });
+
+// ── propose_diff ───────────────────────────────────────────────────────────────
+
+describe('propose_diff', () => {
+  it('transitions annotation to diff_proposed and stores the diff', async () => {
+    const session = await store.createSession({ active: true, url: 'http://localhost:4200' });
+    const ann = await store.createAnnotation(makeAnnotationPayload(session.id));
+    await server.call('acknowledge', { id: ann.id });
+
+    const diff = '--- a/test.ts\n+++ b/test.ts\n@@ -1 +1 @@\n-old\n+new';
+    const result = await server.call('propose_diff', { id: ann.id, diff });
+
+    expect(isError(result)).toBe(false);
+    const data = parseResult(result) as { status: string; diff: string };
+    expect(data.status).toBe('diff_proposed');
+    expect(data.diff).toBe(diff);
+  });
+
+  it('returns error for unknown annotation id', async () => {
+    const result = await server.call('propose_diff', { id: 'nonexistent', diff: '...' });
+    expect(isError(result)).toBe(true);
+  });
+});
+
+// ── watch_diff_response ────────────────────────────────────────────────────────
+
+describe('watch_diff_response', () => {
+  it('returns immediately if diffResponse is already set', async () => {
+    const session = await store.createSession({ active: true, url: 'http://localhost:4200' });
+    const ann = await store.createAnnotation(makeAnnotationPayload(session.id));
+    await store.updateAnnotation(ann.id, { status: 'diff_proposed', diff: '...', diffResponse: 'approved' });
+
+    const result = await server.call('watch_diff_response', { id: ann.id });
+    expect(isError(result)).toBe(false);
+    const data = parseResult(result) as { status: string };
+    expect(data.status).toBe('approved');
+  });
+
+  it('returns approved when developer approves during poll', async () => {
+    const session = await store.createSession({ active: true, url: 'http://localhost:4200' });
+    const ann = await store.createAnnotation(makeAnnotationPayload(session.id));
+    await store.updateAnnotation(ann.id, { status: 'diff_proposed', diff: '...' });
+
+    setTimeout(() => {
+      void store.updateAnnotation(ann.id, { diffResponse: 'approved' });
+    }, 150);
+
+    const start = Date.now();
+    const result = await server.call('watch_diff_response', { id: ann.id, timeoutMs: 5000 });
+    const elapsed = Date.now() - start;
+
+    expect(elapsed).toBeLessThan(2000);
+    expect(isError(result)).toBe(false);
+    const data = parseResult(result) as { status: string };
+    expect(data.status).toBe('approved');
+  }, 10000);
+
+  it('returns rejected when developer rejects during poll', async () => {
+    const session = await store.createSession({ active: true, url: 'http://localhost:4200' });
+    const ann = await store.createAnnotation(makeAnnotationPayload(session.id));
+    await store.updateAnnotation(ann.id, { status: 'diff_proposed', diff: '...' });
+
+    setTimeout(() => {
+      void store.updateAnnotation(ann.id, { diffResponse: 'rejected' });
+    }, 150);
+
+    const result = await server.call('watch_diff_response', { id: ann.id, timeoutMs: 5000 });
+    const data = parseResult(result) as { status: string };
+    expect(data.status).toBe('rejected');
+  }, 10000);
+
+  it('times out when no response arrives', async () => {
+    const session = await store.createSession({ active: true, url: 'http://localhost:4200' });
+    const ann = await store.createAnnotation(makeAnnotationPayload(session.id));
+    await store.updateAnnotation(ann.id, { status: 'diff_proposed', diff: '...' });
+
+    const start = Date.now();
+    const result = await server.call('watch_diff_response', { id: ann.id, timeoutMs: 300 });
+    const elapsed = Date.now() - start;
+
+    expect(elapsed).toBeGreaterThan(250);
+    expect(elapsed).toBeLessThan(800);
+    const data = parseResult(result) as { status: string };
+    expect(data.status).toBe('timeout');
+  }, 5000);
+
+  it('returns error for unknown annotation id', async () => {
+    const result = await server.call('watch_diff_response', { id: 'nonexistent' });
+    expect(isError(result)).toBe(true);
+  });
+});

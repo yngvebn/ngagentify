@@ -22,6 +22,8 @@ describe('OverlayComponent', () => {
     createAnnotation: ReturnType<typeof vi.fn>;
     replyToAnnotation: ReturnType<typeof vi.fn>;
     deleteAnnotation: ReturnType<typeof vi.fn>;
+    approveDiff: ReturnType<typeof vi.fn>;
+    rejectDiff: ReturnType<typeof vi.fn>;
     annotations$: BehaviorSubject<Annotation[]>;
     session$: BehaviorSubject<null>;
     connected$: BehaviorSubject<boolean>;
@@ -38,6 +40,8 @@ describe('OverlayComponent', () => {
       createAnnotation: vi.fn(),
       replyToAnnotation: vi.fn(),
       deleteAnnotation: vi.fn(),
+      approveDiff: vi.fn(),
+      rejectDiff: vi.fn(),
       annotations$,
       session$: new BehaviorSubject(null),
       connected$: new BehaviorSubject(false),
@@ -147,5 +151,175 @@ describe('OverlayComponent', () => {
     );
     expect(component.selectedContext).toBeNull();
     expect(component.annotationText).toBe('');
+  });
+
+  // ── preview mode ────────────────────────────────────────────────────────────
+
+  it('Escape from preview returns to hidden', () => {
+    component.mode = 'preview';
+    component.onEscape();
+    expect(component.mode).toBe('hidden');
+  });
+
+  it('openThread with diff_proposed annotation opens preview mode', () => {
+    const diffAnnotation = {
+      id: 'ann-1',
+      sessionId: 'sess-1',
+      createdAt: new Date().toISOString(),
+      status: 'diff_proposed' as const,
+      replies: [],
+      componentName: 'TestComponent',
+      componentFilePath: 'src/app/test.component.ts',
+      selector: 'app-test',
+      inputs: {},
+      domSnapshot: '',
+      componentTreePath: [],
+      annotationText: 'Fix it',
+      diff: '--- a/test.ts\n+++ b/test.ts\n@@ -1 +1 @@\n-old\n+new',
+    };
+
+    component.openThread(diffAnnotation);
+
+    expect(component.mode).toBe('preview');
+    expect(component.diffAnnotation).toBe(diffAnnotation);
+  });
+
+  it('openThread without diff opens thread mode even if status is diff_proposed', () => {
+    const noDiffAnnotation = {
+      id: 'ann-2',
+      sessionId: 'sess-1',
+      createdAt: new Date().toISOString(),
+      status: 'diff_proposed' as const,
+      replies: [],
+      componentName: 'TestComponent',
+      componentFilePath: 'src/app/test.component.ts',
+      selector: 'app-test',
+      inputs: {},
+      domSnapshot: '',
+      componentTreePath: [],
+      annotationText: 'Fix it',
+    };
+
+    component.openThread(noDiffAnnotation);
+
+    expect(component.mode).toBe('thread');
+  });
+
+  it('approveDiff calls bridge.approveDiff and resets to hidden', () => {
+    const diffAnnotation = {
+      id: 'ann-3',
+      sessionId: 'sess-1',
+      createdAt: new Date().toISOString(),
+      status: 'diff_proposed' as const,
+      replies: [],
+      componentName: 'TestComponent',
+      componentFilePath: 'src/app/test.component.ts',
+      selector: 'app-test',
+      inputs: {},
+      domSnapshot: '',
+      componentTreePath: [],
+      annotationText: 'Fix it',
+      diff: '--- a\n+++ b\n@@ -1 +1 @@\n-old\n+new',
+    };
+
+    component.diffAnnotation = diffAnnotation;
+    component.mode = 'preview';
+    component.approveDiff();
+
+    expect(bridgeSpy.approveDiff).toHaveBeenCalledWith('ann-3');
+    expect(component.diffAnnotation).toBeNull();
+    expect(component.mode).toBe('hidden');
+  });
+
+  it('rejectDiff calls bridge.rejectDiff and resets to hidden', () => {
+    const diffAnnotation = {
+      id: 'ann-4',
+      sessionId: 'sess-1',
+      createdAt: new Date().toISOString(),
+      status: 'diff_proposed' as const,
+      replies: [],
+      componentName: 'TestComponent',
+      componentFilePath: 'src/app/test.component.ts',
+      selector: 'app-test',
+      inputs: {},
+      domSnapshot: '',
+      componentTreePath: [],
+      annotationText: 'Fix it',
+      diff: '--- a\n+++ b\n@@ -1 +1 @@\n-old\n+new',
+    };
+
+    component.diffAnnotation = diffAnnotation;
+    component.mode = 'preview';
+    component.rejectDiff();
+
+    expect(bridgeSpy.rejectDiff).toHaveBeenCalledWith('ann-4');
+    expect(component.diffAnnotation).toBeNull();
+    expect(component.mode).toBe('hidden');
+  });
+
+  it('diffLines parses add, remove, hunk and context lines', () => {
+    component.diffAnnotation = {
+      id: 'ann-5',
+      sessionId: 'sess-1',
+      createdAt: new Date().toISOString(),
+      status: 'diff_proposed' as const,
+      replies: [],
+      componentName: 'TestComponent',
+      componentFilePath: 'src/app/test.component.ts',
+      selector: 'app-test',
+      inputs: {},
+      domSnapshot: '',
+      componentTreePath: [],
+      annotationText: 'Fix it',
+      diff: '@@ -1,2 +1,2 @@\n context\n-removed\n+added',
+    };
+
+    const lines = component.diffLines();
+
+    expect(lines).toHaveLength(4);
+    expect(lines[0].type).toBe('hunk');
+    expect(lines[1].type).toBe('context');
+    expect(lines[2].type).toBe('remove');
+    expect(lines[3].type).toBe('add');
+  });
+
+  it('diffLines returns empty array when diffAnnotation has no diff', () => {
+    component.diffAnnotation = null;
+    expect(component.diffLines()).toEqual([]);
+  });
+
+  it('annotations sync auto-transitions thread to preview when diff arrives', () => {
+    const annotation = {
+      id: 'ann-6',
+      sessionId: 'sess-1',
+      createdAt: new Date().toISOString(),
+      status: 'acknowledged' as const,
+      replies: [],
+      componentName: 'TestComponent',
+      componentFilePath: 'src/app/test.component.ts',
+      selector: 'app-test',
+      inputs: {},
+      domSnapshot: '',
+      componentTreePath: [],
+      annotationText: 'Fix it',
+    };
+
+    component.threadAnnotation = annotation;
+    component.mode = 'thread';
+    fixture.detectChanges();
+
+    const withDiff = {
+      ...annotation,
+      status: 'diff_proposed' as const,
+      diff: '--- a\n+++ b\n@@ -1 +1 @@\n-old\n+new',
+    };
+
+    TestBed.inject(NgZone).run(() => {
+      bridgeSpy.annotations$.next([withDiff]);
+    });
+    fixture.detectChanges();
+
+    expect(component.mode).toBe('preview');
+    expect(component.diffAnnotation).toEqual(withDiff);
   });
 });
