@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.3] — 2026-03-02
+
+### Fixed
+
+- `ng-add` schematic no longer adds `@ng-annotate/mcp-server` to consumer projects' `devDependencies`. The generated MCP config already uses `npx -y @ng-annotate/mcp-server`, so a local install was redundant.
+- Fixed executable bit on `packages/mcp-server/bin/ng-annotate-mcp.js`.
+
 ## [0.6.2] — 2026-03-01
 
 ### Fixed
