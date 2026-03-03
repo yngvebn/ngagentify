@@ -13,6 +13,21 @@ if [[ "$BUMP" != "major" && "$BUMP" != "minor" && "$BUMP" != "patch" ]]; then
   exit 1
 fi
 
+# Ensure working directory is clean
+if [[ -n "$(git status --porcelain)" ]]; then
+  echo "Error: working directory is not clean. Commit or stash changes before releasing."
+  exit 1
+fi
+
+# Ensure local branch is up to date with remote
+git fetch origin main
+LOCAL=$(git rev-parse HEAD)
+REMOTE=$(git rev-parse origin/main)
+if [[ "$LOCAL" != "$REMOTE" ]]; then
+  echo "Error: local branch is not in sync with origin/main. Push or pull before releasing."
+  exit 1
+fi
+
 # Resolve latest tag, strip leading 'v'
 LATEST=$(git tag --list 'v*' --sort=-version:refname | head -1)
 if [[ -z "$LATEST" ]]; then
