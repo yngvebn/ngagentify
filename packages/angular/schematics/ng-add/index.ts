@@ -178,8 +178,8 @@ function addMcpConfig(options: Options): Rule {
         {
           mcpServers: {
             'ng-annotate': isWindows
-              ? { command: 'cmd', args: ['/c', 'npx', '-y', '@ng-annotate/mcp-server'], env }
-              : { command: 'npx', args: ['-y', '@ng-annotate/mcp-server'], env },
+              ? { command: 'cmd', args: ['/c', 'npx', '--yes', '--package=@ng-annotate/mcp-server', 'ng-annotate-mcp'], env }
+              : { command: 'npx', args: ['--yes', '--package=@ng-annotate/mcp-server', 'ng-annotate-mcp'], env },
           },
         },
         null,
@@ -191,7 +191,7 @@ function addMcpConfig(options: Options): Rule {
             'ng-annotate': {
               type: 'stdio',
               command: 'npx',
-              args: ['-y', '@ng-annotate/mcp-server'],
+              args: ['--yes', '--package=@ng-annotate/mcp-server', 'ng-annotate-mcp'],
               env,
             },
           },
@@ -218,8 +218,8 @@ function addMcpConfig(options: Options): Rule {
           {
             mcpServers: {
               'ng-annotate': isWindows
-                ? { command: 'cmd', args: ['/c', 'npx', '-y', '@ng-annotate/mcp-server'], env }
-                : { command: 'npx', args: ['-y', '@ng-annotate/mcp-server'], env },
+                ? { command: 'cmd', args: ['/c', 'npx', '--yes', '--package=@ng-annotate/mcp-server', 'ng-annotate-mcp'], env }
+                : { command: 'npx', args: ['--yes', '--package=@ng-annotate/mcp-server', 'ng-annotate-mcp'], env },
             },
           },
           null,
@@ -247,7 +247,7 @@ function addMcpConfig(options: Options): Rule {
               'ng-annotate': {
                 type: 'stdio',
                 command: 'npx',
-                args: ['-y', '@ng-annotate/mcp-server'],
+                args: ['--yes', '--package=@ng-annotate/mcp-server', 'ng-annotate-mcp'],
                 env,
               },
             },

@@ -33,7 +33,7 @@ The schematic configures the MCP server automatically. For manual setup, add to 
   "mcpServers": {
     "ng-annotate": {
       "command": "npx",
-      "args": ["-y", "@ng-annotate/mcp-server"],
+      "args": ["--yes", "--package=@ng-annotate/mcp-server", "ng-annotate-mcp"],
       "env": {
         "NG_ANNOTATE_PROJECT_ROOT": "/path/to/your/project"
       }
@@ -41,6 +41,8 @@ The schematic configures the MCP server automatically. For manual setup, add to 
   }
 }
 ```
+
+> **Windows users:** replace `"command": "npx"` with `"command": "cmd"` and prepend `"/c", "npx"` to the args array, because `npx` on Windows is a `.cmd` file and requires a shell to invoke.
 
 Or `.vscode/mcp.json` (VS Code Copilot):
 
@@ -50,7 +52,7 @@ Or `.vscode/mcp.json` (VS Code Copilot):
     "ng-annotate": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@ng-annotate/mcp-server"],
+      "args": ["--yes", "--package=@ng-annotate/mcp-server", "ng-annotate-mcp"],
       "env": {
         "NG_ANNOTATE_PROJECT_ROOT": "/path/to/your/project"
       }
