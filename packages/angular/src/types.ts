@@ -32,6 +32,7 @@ export interface Session {
   lastSeenAt: string;
   active: boolean;
   url: string;
+  yoloMode?: boolean;
 }
 
 export interface ComponentContext {

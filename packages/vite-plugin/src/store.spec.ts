@@ -231,6 +231,52 @@ describe('concurrent access', () => {
   });
 }, 15000);
 
+// ── deleteAnnotation ──────────────────────────────────────────────────────────
+
+describe('store.deleteAnnotation', () => {
+  it('removes the annotation from the store and returns true', async () => {
+    const store = await getStore();
+    const session = await store.createSession({ active: true, url: 'http://localhost:4200' });
+    const ann = await store.createAnnotation(makeAnnotationPayload(session.id));
+    const deleted = await store.deleteAnnotation(ann.id);
+    expect(deleted).toBe(true);
+    const list = await store.listAnnotations();
+    expect(list).toHaveLength(0);
+  });
+
+  it('returns false for an unknown id', async () => {
+    const store = await getStore();
+    const deleted = await store.deleteAnnotation('nonexistent-id');
+    expect(deleted).toBe(false);
+  });
+});
+
+// ── clearAnnotations ──────────────────────────────────────────────────────────
+
+describe('store.clearAnnotations', () => {
+  it('removes all annotations for the given session', async () => {
+    const store = await getStore();
+    const s1 = await store.createSession({ active: true, url: 'http://localhost:4200' });
+    const s2 = await store.createSession({ active: true, url: 'http://localhost:4200' });
+    await store.createAnnotation(makeAnnotationPayload(s1.id));
+    await store.createAnnotation(makeAnnotationPayload(s1.id));
+    await store.createAnnotation(makeAnnotationPayload(s2.id));
+
+    await store.clearAnnotations(s1.id);
+
+    const s1Annotations = await store.listAnnotations(s1.id);
+    expect(s1Annotations).toHaveLength(0);
+    const s2Annotations = await store.listAnnotations(s2.id);
+    expect(s2Annotations).toHaveLength(1);
+  });
+
+  it('is a no-op when the session has no annotations', async () => {
+    const store = await getStore();
+    const session = await store.createSession({ active: true, url: 'http://localhost:4200' });
+    await expect(store.clearAnnotations(session.id)).resolves.toBeUndefined();
+  });
+});
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function makeAnnotationPayload(sessionId: string) {

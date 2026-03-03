@@ -4,10 +4,13 @@ import type { Session, Annotation } from './types';
 
 type BridgeMessage =
   | { type: 'session:created'; session: Session }
+  | { type: 'session:updated'; session: Session }
   | { type: 'annotations:sync'; annotations: Annotation[] }
   | { type: 'annotation:created'; annotation: Annotation }
   | { type: 'manifest:update'; manifest: Record<string, unknown> }
   | { type: string };
+
+const SESSION_STORAGE_KEY = 'ng-annotate:sessionId';
 
 @Injectable()
 export class BridgeService implements OnDestroy {
@@ -24,10 +27,14 @@ export class BridgeService implements OnDestroy {
   }
 
   private connect(): void {
-    const wsUrl = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/__annotate`;
+    const storedSessionId = localStorage.getItem(SESSION_STORAGE_KEY);
+    const params = storedSessionId ? `?sessionId=${encodeURIComponent(storedSessionId)}` : '';
+    const wsUrl = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/__annotate${params}`;
+    console.debug('[nga] connecting', storedSessionId ? `restoring session ${storedSessionId}` : 'new session');
     this.ws = new WebSocket(wsUrl);
 
     this.ws.onopen = () => {
+      console.debug('[nga] WebSocket opened');
       this.zone.run(() => {
         this.connected$.next(true);
       });
@@ -38,11 +45,17 @@ export class BridgeService implements OnDestroy {
         try {
           const data = JSON.parse(event.data) as BridgeMessage;
           if (data.type === 'session:created') {
-            this.session$.next((data as Extract<BridgeMessage, { type: 'session:created' }>).session);
+            const session = (data as Extract<BridgeMessage, { type: 'session:created' }>).session;
+            console.debug('[nga] session:created', session.id);
+            localStorage.setItem(SESSION_STORAGE_KEY, session.id);
+            this.session$.next(session);
           } else if (data.type === 'annotations:sync') {
-            this.annotations$.next(
-              (data as Extract<BridgeMessage, { type: 'annotations:sync' }>).annotations,
-            );
+            const annotations = (data as Extract<BridgeMessage, { type: 'annotations:sync' }>).annotations;
+            console.debug('[nga] annotations:sync', annotations.length, 'annotations', annotations.map(a => `${a.selector}(${a.status})`));
+            this.annotations$.next(annotations);
+          } else if (data.type === 'session:updated') {
+            const session = (data as Extract<BridgeMessage, { type: 'session:updated' }>).session;
+            this.session$.next(session);
           } else if (data.type === 'annotation:created') {
             const annotation = (
               data as Extract<BridgeMessage, { type: 'annotation:created' }>
@@ -89,6 +102,15 @@ export class BridgeService implements OnDestroy {
 
   rejectDiff(id: string): void {
     this.send({ type: 'diff:rejected', id });
+  }
+
+  clearAnnotations(): void {
+    localStorage.removeItem(SESSION_STORAGE_KEY);
+    this.send({ type: 'annotations:clear' });
+  }
+
+  toggleYoloMode(): void {
+    this.send({ type: 'session:yolo-toggle' });
   }
 
   private send(msg: Record<string, unknown>): void {

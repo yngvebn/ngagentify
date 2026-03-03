@@ -12,7 +12,7 @@ import { JsonPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { InspectorService } from '../inspector.service';
 import { BridgeService } from '../bridge.service';
-import type { Annotation, ComponentContext, AnnotationStatus } from '../types';
+import type { Annotation, ComponentContext, AnnotationStatus, Session } from '../types';
 
 type OverlayMode = 'hidden' | 'inspect' | 'annotate' | 'thread' | 'preview';
 
@@ -130,18 +130,35 @@ interface AnnotationBadge {
     .nga-keyboard-hint {
       pointer-events: none; position: fixed; bottom: 16px; right: 16px;
       background: rgba(15,23,42,0.7); color: #f8fafc; font-size: 12px;
-      padding: 6px 10px; border-radius: 6px;
+      padding: 6px 10px; border-radius: 6px; display: flex; align-items: center; gap: 8px;
     }
     .nga-keyboard-hint kbd {
       background: rgba(255,255,255,0.15); border-radius: 3px;
       padding: 1px 5px; font-family: monospace;
     }
+    .nga-yolo-btn {
+      pointer-events: all; cursor: pointer; border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 4px; padding: 1px 6px; font-size: 11px;
+      background: rgba(255,255,255,0.1); color: #f8fafc; transition: background 0.15s;
+    }
+    .nga-yolo-btn:hover { background: rgba(255,255,255,0.2); }
+    .nga-yolo-btn--active { background: #f59e0b; border-color: #f59e0b; color: #1e293b; }
+    .nga-yolo-btn--active:hover { background: #fbbf24; }
   `],
   template: `
     <!-- Keyboard hint -->
     @if (mode === 'hidden') {
       <div class="nga-keyboard-hint">
-        <kbd>Alt+Shift+A</kbd> to annotate
+        <button
+          class="nga-yolo-btn"
+          [class.nga-yolo-btn--active]="session?.yoloMode"
+          (click)="toggleYolo()"
+          [title]="session?.yoloMode ? 'Yolo mode ON — agent applies changes without review. Click to disable.' : 'Yolo mode OFF — agent proposes diffs for review. Click to enable.'"
+        >⚡ {{ session?.yoloMode ? 'Yolo ON' : 'Yolo OFF' }}</button>
+        <span><kbd>Alt+Shift+A</kbd> to annotate</span>
+        @if (badges.length > 0) {
+          <span><kbd>Alt+Shift+X</kbd> clear all</span>
+        }
       </div>
     }
     @if (mode === 'inspect') {
@@ -271,6 +288,7 @@ interface AnnotationBadge {
 export class OverlayComponent implements OnInit {
   @ViewChild('textArea') textArea?: ElementRef<HTMLTextAreaElement>;
 
+  session: Session | null = null;
   mode: OverlayMode = 'hidden';
   hoveredContext: ComponentContext | null = null;
   highlightRect: HighlightRect | null = null;
@@ -285,8 +303,14 @@ export class OverlayComponent implements OnInit {
   private readonly inspector = inject(InspectorService);
   private readonly bridge = inject(BridgeService);
   private readonly cdr = inject(ChangeDetectorRef);
+  private badgeRetryTimer: ReturnType<typeof setTimeout> | null = null;
 
   ngOnInit(): void {
+    this.bridge.session$.subscribe((session) => {
+      this.session = session;
+      this.cdr.markForCheck();
+    });
+
     this.bridge.annotations$.subscribe((annotations) => {
       this.updateBadges(annotations);
 
@@ -310,6 +334,21 @@ export class OverlayComponent implements OnInit {
 
       this.cdr.markForCheck();
     });
+  }
+
+  toggleYolo(): void {
+    this.bridge.toggleYoloMode();
+  }
+
+  @HostListener('document:keydown.alt.shift.x', ['$event'])
+  clearAll(event?: Event): void {
+    event?.preventDefault();
+    if (this.badges.length === 0) return;
+    this.bridge.clearAnnotations();
+    this.threadAnnotation = null;
+    this.diffAnnotation = null;
+    this.mode = 'hidden';
+    this.cdr.markForCheck();
   }
 
   @HostListener('document:keydown.alt.shift.a', ['$event'])
@@ -462,9 +501,11 @@ export class OverlayComponent implements OnInit {
   }
 
   private updateBadges(annotations: Annotation[]): void {
-    this.badges = annotations
+    console.debug('[nga] updateBadges', annotations.length, 'annotations');
+    const newBadges = annotations
       .map((annotation) => {
         const el = this.findComponentElement(annotation.componentName, annotation.selector);
+        console.debug('[nga]  ', annotation.selector, '->', el ? 'found' : 'NOT FOUND');
         if (!el) return null;
         const rect = el.getBoundingClientRect();
         return {
@@ -476,6 +517,18 @@ export class OverlayComponent implements OnInit {
         };
       })
       .filter((b): b is AnnotationBadge => b !== null);
+    console.debug('[nga] badges result:', newBadges.length);
+    this.badges = newBadges;
+
+    // If annotations exist but no elements were found yet (DOM not ready), retry shortly.
+    if (annotations.length > 0 && newBadges.length === 0 && this.badgeRetryTimer === null) {
+      console.debug('[nga] scheduling retry in 300ms');
+      this.badgeRetryTimer = setTimeout(() => {
+        this.badgeRetryTimer = null;
+        this.updateBadges(this.bridge.annotations$.getValue());
+        this.cdr.markForCheck();
+      }, 300);
+    }
   }
 
   private refreshBadgePositions(): void {

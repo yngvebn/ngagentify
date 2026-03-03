@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] — 2026-03-03
+
+### Added
+
+- **Yolo mode** — a session-level toggle that lets the developer trust the agent to apply changes without a manual diff review. When enabled, `watch_diff_response` auto-approves immediately so the agent writes files and resolves the annotation without any interaction. Toggle via the ⚡ button in the overlay hint bar; state is stored per-session in `store.json` and survives page refreshes.
+
+## [0.7.0] — 2026-03-02
+
+### Added
+
+- **Annotation persistence across page refreshes** — session ID is stored in `localStorage` and sent as a `?sessionId=` query param on WebSocket reconnect. The Angular builder restores the existing session and immediately syncs all annotations back to the browser, so badges reappear after a refresh without needing the agent to re-run.
+- **Clear all markers** — `Alt+Shift+X` keyboard shortcut in the overlay sends `annotations:clear`, which the server handles by deleting all annotations for the current session. The overlay clears all badges and dismisses any open panels.
+
+### Fixed
+
+- WebSocket upgrade handler in the Angular builder now uses `startsWith('/__annotate')` instead of an exact match, so session-restore URLs (`/__annotate?sessionId=…`) are correctly accepted.
+- Race condition in the Angular builder's WebSocket close handler: the socket is now only removed from `sessionSockets` if it is still the currently registered socket for that session, preventing a fast page refresh from unregistering the new connection.
+
 ## [0.6.3] — 2026-03-02
 
 ### Fixed

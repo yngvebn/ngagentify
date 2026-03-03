@@ -12,6 +12,7 @@ export interface Session {
   lastSeenAt: string;
   active: boolean;
   url: string;
+  yoloMode?: boolean;
 }
 
 export interface AnnotationReply {
@@ -221,5 +222,28 @@ export const store = {
       return data;
     });
     return result;
+  },
+
+  async deleteAnnotation(id: string): Promise<boolean> {
+    let deleted = false;
+    await withLock<StoreData>((data) => {
+      if (data.annotations[id]) {
+        Reflect.deleteProperty(data.annotations, id);
+        deleted = true;
+      }
+      return data;
+    });
+    return deleted;
+  },
+
+  async clearAnnotations(sessionId: string): Promise<void> {
+    await withLock<StoreData>((data) => {
+      for (const id of Object.keys(data.annotations)) {
+        if (data.annotations[id]?.sessionId === sessionId) {
+          Reflect.deleteProperty(data.annotations, id);
+        }
+      }
+      return data;
+    });
   },
 };

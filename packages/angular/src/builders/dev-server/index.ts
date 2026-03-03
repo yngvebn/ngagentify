@@ -43,6 +43,7 @@ interface Session {
   lastSeenAt: string;
   active: boolean;
   url: string;
+  yoloMode?: boolean;
 }
 
 interface AnnotationReply {
@@ -171,6 +172,21 @@ function makeStore(projectRoot: string, log: Logger) {
       log.debug(`annotation updated: ${id} patch=${JSON.stringify(patch)}`);
       return result;
     },
+
+    getSession(id: string): Session | undefined {
+      const data = readStore();
+      return data.sessions[id];
+    },
+
+    async clearAnnotations(sessionId: string): Promise<void> {
+      await withLock<StoreData>((data) => {
+        for (const id of Object.keys(data.annotations)) {
+          if (data.annotations[id]?.sessionId === sessionId) Reflect.deleteProperty(data.annotations, id);
+        }
+        return data;
+      });
+      log.debug(`clearAnnotations(${sessionId})`);
+    },
   };
 }
 
@@ -289,19 +305,39 @@ function createAnnotateWsHandler(
 
   wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
     void (async () => {
-      const url = req.headers.referer ?? req.headers.origin ?? '';
-      log.debug(`WS connection from: ${url}`);
+      const refererUrl = req.headers.referer ?? req.headers.origin ?? '';
+      log.debug(`WS connection from: ${refererUrl}`);
+
+      // Parse optional sessionId query param for session restoration
+      let existingSessionId: string | null = null;
+      try {
+        const reqUrl = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
+        existingSessionId = reqUrl.searchParams.get('sessionId');
+      } catch { /* ignore parse errors */ }
+      log.debug(`existingSessionId=${existingSessionId ?? '(none)'}`);
+
       let sessionId: string;
       try {
-        const session = await store.createSession(url);
+        let session = existingSessionId ? store.getSession(existingSessionId) : undefined;
+        log.debug(`session lookup: ${session ? 'found' : 'not found'}`);
+        if (session) {
+          await store.updateSession(session.id, { active: true, lastSeenAt: new Date().toISOString() });
+          session = { ...session, active: true, lastSeenAt: new Date().toISOString() };
+        } else {
+          session = await store.createSession(refererUrl);
+        }
         sessionId = session.id;
         safeSend(ws, { type: 'session:created', session });
         const manifest = getManifest();
         safeSend(ws, { type: 'manifest:update', manifest });
-        log.debug(`WS session:created → ${sessionId}, sent manifest with ${String(Object.keys(manifest).length)} component(s)`);
+        // Immediately sync existing annotations for restored sessions
+        const annotations = store.listAnnotations(sessionId);
+        log.debug(`syncing ${String(annotations.length)} annotation(s) on connect`);
+        safeSend(ws, { type: 'annotations:sync', annotations });
+        log.debug(`WS session ready → ${sessionId}, manifest: ${String(Object.keys(manifest).length)} component(s)`);
         sessionSockets.set(sessionId, ws);
       } catch (err) {
-        log.info(`Failed to create session: ${String(err)}`);
+        log.info(`Failed to create/restore session: ${String(err)}`);
         return;
       }
 
@@ -318,6 +354,15 @@ function createAnnotateWsHandler(
             } else if (msg.type === 'annotation:reply' && msg.id && msg.message) {
               const updated = await store.addReply(msg.id, { author: 'user', message: msg.message });
               if (updated) safeSend(ws, { type: 'annotation:updated', annotation: updated });
+            } else if (msg.type === 'session:yolo-toggle') {
+              const current = store.getSession(sessionId);
+              await store.updateSession(sessionId, { yoloMode: !(current?.yoloMode ?? false) });
+              const updated = store.getSession(sessionId);
+              if (updated) safeSend(ws, { type: 'session:updated', session: updated });
+              log.debug(`yolo mode toggled: ${String(updated?.yoloMode ?? false)}`);
+            } else if (msg.type === 'annotations:clear') {
+              await store.clearAnnotations(sessionId);
+              safeSend(ws, { type: 'annotations:sync', annotations: [] });
             } else if (msg.type === 'diff:approved' && msg.id) {
               await store.updateAnnotation(msg.id, { diffResponse: 'approved' });
               log.debug(`diff approved for annotation ${msg.id}`);
@@ -334,7 +379,10 @@ function createAnnotateWsHandler(
       ws.on('close', () => {
         log.debug(`WS closed: session ${sessionId}`);
         void store.updateSession(sessionId, { active: false });
-        sessionSockets.delete(sessionId);
+        // Guard against race condition: only delete if this is still the registered socket
+        if (sessionSockets.get(sessionId) === ws) {
+          sessionSockets.delete(sessionId);
+        }
       });
     })();
   });
@@ -421,7 +469,7 @@ export default createBuilder<NgAnnotateDevServerOptions>((options, context) => {
       wsAttached = true;
       const httpServer = (req.socket as unknown as { server: http.Server }).server;
       httpServer.on('upgrade', (upgradeReq: http.IncomingMessage, socket, head: Buffer) => {
-        if (upgradeReq.url === '/__annotate') {
+        if (upgradeReq.url?.startsWith('/__annotate')) {
           log.debug(`WS upgrade request from: ${upgradeReq.headers.origin ?? '(unknown)'}`);
           wss.handleUpgrade(upgradeReq, socket, head, (ws) => {
             wss.emit('connection', ws, upgradeReq);

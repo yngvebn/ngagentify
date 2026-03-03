@@ -263,6 +263,12 @@ export function registerTools(server: McpServer): void {
         return json({ status: existing.diffResponse, annotation: existing });
       }
 
+      // Yolo mode: auto-approve without waiting for developer input
+      const session = await store.getSession(existing.sessionId);
+      if (session?.yoloMode) {
+        return json({ status: 'approved', annotation: existing, yolo: true });
+      }
+
       const result = await new Promise<
         | { status: 'approved' | 'rejected'; annotation: Annotation }
         | { status: 'timeout' }

@@ -11,6 +11,8 @@ type MessageType =
   | { type: 'annotation:create'; payload: Record<string, unknown> }
   | { type: 'annotation:reply'; id: string; message: string }
   | { type: 'annotation:delete'; id: string }
+  | { type: 'annotations:clear' }
+  | { type: 'session:yolo-toggle' }
   | { type: 'diff:approved'; id: string }
   | { type: 'diff:rejected'; id: string };
 
@@ -36,13 +38,35 @@ export function createWsHandler(server: ViteDevServer, getManifest: () => Record
   wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
     void (async () => {
       const referer = req.headers.referer ?? req.headers.origin ?? '';
+      server.config.logger.info(`[ng-annotate] WS connected, url=${req.url ?? '(none)'}`);
+
+      let reqUrlParsed: URL;
+      try {
+        reqUrlParsed = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
+      } catch (err) {
+        server.config.logger.error(`[ng-annotate] Failed to parse WS URL "${req.url ?? ''}": ${String(err)}`);
+        return;
+      }
+      const existingSessionId = reqUrlParsed.searchParams.get('sessionId');
+      server.config.logger.info(`[ng-annotate] existingSessionId=${existingSessionId ?? '(none)'}`);
 
       let sessionId: string;
       try {
-        const session = await store.createSession({ active: true, url: referer });
+        let session = existingSessionId ? await store.getSession(existingSessionId) : undefined;
+        server.config.logger.info(`[ng-annotate] session lookup: ${session ? 'found' : 'not found'}`);
+        if (session) {
+          session = await store.updateSession(session.id, { active: true, lastSeenAt: new Date().toISOString() }) ?? session;
+        } else {
+          session = await store.createSession({ active: true, url: referer });
+        }
         sessionId = session.id;
+        server.config.logger.info(`[ng-annotate] session ready: ${sessionId}`);
         safeSend(ws, { type: 'session:created', session });
         safeSend(ws, { type: 'manifest:update', manifest: getManifest() });
+        // Immediately sync existing annotations for restored sessions
+        const annotations = await store.listAnnotations(sessionId);
+        server.config.logger.info(`[ng-annotate] syncing ${annotations.length} annotations`);
+        safeSend(ws, { type: 'annotations:sync', annotations });
         sessionSockets.set(sessionId, ws);
       } catch (err) {
         server.config.logger.error(`[ng-annotate] Failed to create session: ${String(err)}`);
@@ -68,6 +92,13 @@ export function createWsHandler(server: ViteDevServer, getManifest: () => Record
             } else if (msg.type === 'annotation:reply') {
               const annotation = await store.addReply(msg.id, { author: 'user', message: msg.message });
               if (annotation) safeSend(ws, { type: 'annotation:updated', annotation });
+            } else if (msg.type === 'session:yolo-toggle') {
+              const current = await store.getSession(sessionId);
+              const updated = await store.updateSession(sessionId, { yoloMode: !(current?.yoloMode ?? false) });
+              if (updated) safeSend(ws, { type: 'session:updated', session: updated });
+            } else if (msg.type === 'annotations:clear') {
+              await store.clearAnnotations(sessionId);
+              safeSend(ws, { type: 'annotations:sync', annotations: [] });
             } else if (msg.type === 'diff:approved') {
               await store.updateAnnotation(msg.id, { diffResponse: 'approved' });
             } else if (msg.type === 'diff:rejected') {
@@ -84,7 +115,9 @@ export function createWsHandler(server: ViteDevServer, getManifest: () => Record
 
       ws.on('close', () => {
         void store.updateSession(sessionId, { active: false });
-        sessionSockets.delete(sessionId);
+        if (sessionSockets.get(sessionId) === ws) {
+          sessionSockets.delete(sessionId);
+        }
       });
     })();
   });

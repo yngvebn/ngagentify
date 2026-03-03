@@ -26,6 +26,7 @@ const config = tseslint.config(
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-floating-promises': 'error',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true }],
       'import/no-cycle': 'error',
       'unicorn/prefer-node-protocol': 'error',
     },
@@ -52,7 +53,7 @@ const config = tseslint.config(
       // Vitest config files are not included in tsconfigs and don't need type-checked linting
       '**/vitest.config.ts',
       // Spec files are excluded from tsconfigs — skip project-service linting for them
-      'packages/*/src/**/*.spec.ts',
+      '**/*.spec.ts',
     ],
   },
 );
