@@ -1,6 +1,6 @@
 {
   "name": "@ng-annotate/angular",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "schematics": "./schematics/collection.json",
   "builders": "./builders.json",
   "description": "Angular library for ng-annotate-mcp — browser overlay for annotating components and routing instructions to an AI agent",
