@@ -65,6 +65,7 @@ interface Annotation {
 interface StoreData {
   sessions: Record<string, Session | undefined>;
   annotations: Record<string, Annotation | undefined>;
+  lastAgentHeartbeat?: string;
 }
 
 type Logger = ReturnType<typeof makeLogger>;
@@ -186,6 +187,20 @@ function makeStore(projectRoot: string, log: Logger) {
         return data;
       });
       log.debug(`clearAnnotations(${sessionId})`);
+    },
+
+    getHeartbeat(): string | undefined {
+      const data = readStore();
+      return data.lastAgentHeartbeat;
+    },
+
+    /** Read the store once and return all annotations + heartbeat as a single consistent snapshot. */
+    snapshot(): { annotations: Annotation[]; lastAgentHeartbeat: string | undefined } {
+      const data = readStore();
+      const annotations = Object.values(data.annotations)
+        .filter((a): a is Annotation => a !== undefined)
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+      return { annotations, lastAgentHeartbeat: data.lastAgentHeartbeat };
     },
   };
 }
@@ -333,7 +348,7 @@ function createAnnotateWsHandler(
         // Immediately sync existing annotations for restored sessions
         const annotations = store.listAnnotations(sessionId);
         log.debug(`syncing ${String(annotations.length)} annotation(s) on connect`);
-        safeSend(ws, { type: 'annotations:sync', annotations });
+        safeSend(ws, { type: 'annotations:sync', annotations, lastAgentHeartbeat: store.getHeartbeat() });
         log.debug(`WS session ready → ${sessionId}, manifest: ${String(Object.keys(manifest).length)} component(s)`);
         sessionSockets.set(sessionId, ws);
       } catch (err) {
@@ -362,7 +377,7 @@ function createAnnotateWsHandler(
               log.debug(`yolo mode toggled: ${String(updated?.yoloMode ?? false)}`);
             } else if (msg.type === 'annotations:clear') {
               await store.clearAnnotations(sessionId);
-              safeSend(ws, { type: 'annotations:sync', annotations: [] });
+              safeSend(ws, { type: 'annotations:sync', annotations: [], lastAgentHeartbeat: store.getHeartbeat() });
             } else if (msg.type === 'diff:approved' && msg.id) {
               await store.updateAnnotation(msg.id, { diffResponse: 'approved' });
               log.debug(`diff approved for annotation ${msg.id}`);
@@ -388,10 +403,13 @@ function createAnnotateWsHandler(
   });
 
   setInterval(() => {
+    if (sessionSockets.size === 0) return;
+    // Read the store once per tick so heartbeat and annotations come from the same snapshot.
+    const snapshot = store.snapshot();
     for (const [sessionId, ws] of sessionSockets) {
       if (ws.readyState !== WebSocket.OPEN) continue;
-      const annotations = store.listAnnotations(sessionId);
-      safeSend(ws, { type: 'annotations:sync', annotations });
+      const annotations = snapshot.annotations.filter((a) => a.sessionId === sessionId);
+      safeSend(ws, { type: 'annotations:sync', annotations, lastAgentHeartbeat: snapshot.lastAgentHeartbeat });
     }
   }, SYNC_INTERVAL_MS);
 

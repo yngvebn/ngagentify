@@ -31,6 +31,9 @@ interface AnnotationBadge {
   label: string;
 }
 
+// Threshold: 25s watch_annotations timeout + 15s buffer
+const AGENT_HEARTBEAT_STALE_MS = 40_000;
+
 @Component({
   selector: 'nga-overlay',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -127,161 +130,289 @@ interface AnnotationBadge {
     .nga-diff-line--hunk { background: rgba(59,130,246,0.08); color: #1e40af; }
     .nga-btn-approve { background: #22c55e; color: #ffffff; }
     .nga-btn-reject { background: #ef4444; color: #ffffff; }
-    .nga-keyboard-hint {
-      pointer-events: none; position: fixed; bottom: 16px; right: 16px;
+    .nga-inspect-hint {
+      pointer-events: none; position: fixed; bottom: 16px; right: 52px;
       background: rgba(15,23,42,0.7); color: #f8fafc; font-size: 12px;
-      padding: 6px 10px; border-radius: 6px; display: flex; align-items: center; gap: 8px;
+      padding: 6px 10px; border-radius: 6px;
     }
-    .nga-keyboard-hint kbd {
+    .nga-inspect-hint kbd {
       background: rgba(255,255,255,0.15); border-radius: 3px;
       padding: 1px 5px; font-family: monospace;
     }
-    .nga-yolo-btn {
-      pointer-events: all; cursor: pointer; border: 1px solid rgba(255,255,255,0.25);
-      border-radius: 4px; padding: 1px 6px; font-size: 11px;
-      background: rgba(255,255,255,0.1); color: #f8fafc; transition: background 0.15s;
+    /* Always-visible ? button */
+    .nga-help-btn {
+      pointer-events: all; position: fixed; bottom: 16px; right: 16px;
+      width: 28px; height: 28px; border-radius: 50%;
+      border: none; font-size: 13px; font-weight: 700; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: opacity 0.15s, transform 0.15s;
+      color: #ffffff;
     }
-    .nga-yolo-btn:hover { background: rgba(255,255,255,0.2); }
-    .nga-yolo-btn--active { background: #f59e0b; border-color: #f59e0b; color: #1e293b; }
-    .nga-yolo-btn--active:hover { background: #fbbf24; }
+    .nga-help-btn:hover { opacity: 0.85; transform: scale(1.1); }
+    .nga-help-btn--connected { background: #22c55e; }
+    .nga-help-btn--offline { background: #f59e0b; }
+    /* Modal */
+    .nga-modal-backdrop {
+      pointer-events: all; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.4); display: flex;
+      align-items: center; justify-content: center;
+    }
+    .nga-modal {
+      background: #ffffff; border-radius: 10px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.2);
+      padding: 20px; width: 340px;
+    }
+    .nga-modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .nga-modal-title { font-size: 14px; font-weight: 700; color: #1e293b; font-family: monospace; margin: 0; }
+    .nga-modal-close {
+      pointer-events: all; cursor: pointer; background: none; border: none;
+      font-size: 16px; color: #94a3b8; line-height: 1; padding: 0;
+    }
+    .nga-modal-close:hover { color: #475569; }
+    .nga-modal-section { margin-bottom: 16px; }
+    .nga-modal-section:last-child { margin-bottom: 0; }
+    .nga-modal-section-title {
+      font-size: 11px; font-weight: 600; color: #94a3b8;
+      text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 8px;
+    }
+    .nga-status-row {
+      display: flex; align-items: center; gap: 8px; font-size: 13px; color: #1e293b;
+    }
+    .nga-status-dot {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    }
+    .nga-status-dot--connected { background: #22c55e; }
+    .nga-status-dot--offline { background: #f59e0b; }
+    .nga-code {
+      background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px;
+      padding: 8px 10px; font-size: 11px; font-family: monospace;
+      margin: 8px 0 0; overflow-x: auto; white-space: pre;
+    }
+    .nga-shortcut-table { width: 100%; border-collapse: collapse; }
+    .nga-shortcut-table td { padding: 3px 0; font-size: 12px; color: #475569; }
+    .nga-shortcut-table td:first-child { padding-right: 12px; }
+    .nga-shortcut-table kbd {
+      background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 3px;
+      padding: 1px 5px; font-size: 11px; font-family: monospace; color: #1e293b;
+    }
+    .nga-settings-row {
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 13px; color: #475569; margin-bottom: 8px;
+    }
+    .nga-settings-row:last-child { margin-bottom: 0; }
+    .nga-toggle-btn {
+      cursor: pointer; border: 1px solid #e2e8f0; border-radius: 4px;
+      padding: 3px 10px; font-size: 12px; background: #f1f5f9; color: #475569;
+      transition: background 0.15s;
+    }
+    .nga-toggle-btn:hover { background: #e2e8f0; }
+    .nga-toggle-btn--active { background: #f59e0b; border-color: #f59e0b; color: #1e293b; }
+    .nga-toggle-btn--active:hover { background: #fbbf24; }
   `],
   template: `
-    <!-- Keyboard hint -->
-    @if (mode === 'hidden') {
-      <div class="nga-keyboard-hint">
-        <button
-          class="nga-yolo-btn"
-          [class.nga-yolo-btn--active]="session?.yoloMode"
-          (click)="toggleYolo()"
-          [title]="session?.yoloMode ? 'Yolo mode ON — agent applies changes without review. Click to disable.' : 'Yolo mode OFF — agent proposes diffs for review. Click to enable.'"
-        >⚡ {{ session?.yoloMode ? 'Yolo ON' : 'Yolo OFF' }}</button>
-        <span><kbd>Alt+Shift+A</kbd> to annotate</span>
-        @if (badges.length > 0) {
-          <span><kbd>Alt+Shift+X</kbd> clear all</span>
-        }
-      </div>
-    }
-    @if (mode === 'inspect') {
-      <div class="nga-keyboard-hint">
-        Click a component &nbsp; <kbd>Esc</kbd> to cancel
+    <!-- Always-visible ? button (green = agent watching, yellow = offline) -->
+    <button
+      class="nga-help-btn"
+      [class.nga-help-btn--connected]="agentConnected"
+      [class.nga-help-btn--offline]="!agentConnected"
+      (click)="openHelpModal()"
+      [title]="agentConnected ? 'MCP agent is watching' : 'MCP agent not watching — click for help'"
+    >?</button>
+
+    <!-- Help / info modal -->
+    @if (showHelpModal) {
+      <div class="nga-modal-backdrop" (click)="closeHelpModal()">
+        <div class="nga-modal" (click)="$event.stopPropagation()">
+          <div class="nga-modal-header">
+            <h3 class="nga-modal-title">ng-annotate</h3>
+            <button class="nga-modal-close" (click)="closeHelpModal()">✕</button>
+          </div>
+
+          <!-- Agent status -->
+          <div class="nga-modal-section">
+            <p class="nga-modal-section-title">MCP Agent</p>
+            @if (agentConnected) {
+              <div class="nga-status-row">
+                <span class="nga-status-dot nga-status-dot--connected"></span>
+                Watching for annotations
+              </div>
+            } @else {
+              <div class="nga-status-row">
+                <span class="nga-status-dot nga-status-dot--offline"></span>
+                Not watching
+              </div>
+              <p style="font-size:12px;color:#64748b;margin:8px 0 4px">Add to <strong>.mcp.json</strong> in your project root:</p>
+              <pre class="nga-code" [textContent]="mcpJsonExample"></pre>
+              <p style="font-size:12px;color:#64748b;margin:8px 0 0">Then reload your MCP client (e.g. Claude Code).</p>
+            }
+          </div>
+
+          <!-- Keyboard shortcuts -->
+          <div class="nga-modal-section">
+            <p class="nga-modal-section-title">Keyboard Shortcuts</p>
+            <table class="nga-shortcut-table">
+              <tr><td><kbd>Alt+Shift+A</kbd></td><td>Inspect &amp; annotate</td></tr>
+              <tr><td><kbd>Alt+Shift+H</kbd></td><td>Hide / show overlay</td></tr>
+              <tr><td><kbd>Alt+Shift+X</kbd></td><td>Clear all annotations</td></tr>
+              <tr><td><kbd>Esc</kbd></td><td>Cancel / go back</td></tr>
+            </table>
+          </div>
+
+          <!-- Settings -->
+          <div class="nga-modal-section">
+            <p class="nga-modal-section-title">Settings</p>
+            <div class="nga-settings-row">
+              <span>⚡ Yolo mode <small style="color:#94a3b8">(auto-apply diffs)</small></span>
+              <button
+                class="nga-toggle-btn"
+                [class.nga-toggle-btn--active]="session?.yoloMode"
+                (click)="toggleYolo()"
+              >{{ session?.yoloMode ? 'ON' : 'OFF' }}</button>
+            </div>
+            <div class="nga-settings-row">
+              <span>Overlay visibility</span>
+              <button class="nga-toggle-btn" (click)="toggleOverlay(); closeHelpModal()">
+                {{ overlayVisible ? 'Hide' : 'Show' }}
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     }
 
-    <!-- Inspect highlight rect -->
-    @if (mode === 'inspect' && hoveredContext !== null && highlightRect !== null) {
-      <div
-        class="nga-highlight-rect"
-        [style.top]="highlightRect.top"
-        [style.left]="highlightRect.left"
-        [style.width]="highlightRect.width"
-        [style.height]="highlightRect.height"
-      >
-        <span class="nga-component-label">{{ hoveredContext.componentName }}</span>
-      </div>
-    }
+    <!-- Main overlay content (hidden when !overlayVisible) -->
+    @if (overlayVisible) {
+      <!-- Contextual inspect hint -->
+      @if (mode === 'hidden') {
+        <div class="nga-inspect-hint">
+          <kbd>Alt+Shift+A</kbd> to inspect
+        </div>
+      }
+      @if (mode === 'inspect') {
+        <div class="nga-inspect-hint">
+          Click a component &nbsp; <kbd>Esc</kbd> to cancel
+        </div>
+      }
 
-    <!-- Annotate panel -->
-    @if (mode === 'annotate' && selectedContext !== null) {
-      <div class="nga-annotate-panel">
-        <h3 class="nga-panel-title">{{ selectedContext.componentName }}</h3>
+      <!-- Inspect highlight rect -->
+      @if (mode === 'inspect' && hoveredContext !== null && highlightRect !== null) {
+        <div
+          class="nga-highlight-rect"
+          [style.top]="highlightRect.top"
+          [style.left]="highlightRect.left"
+          [style.width]="highlightRect.width"
+          [style.height]="highlightRect.height"
+        >
+          <span class="nga-component-label">{{ hoveredContext.componentName }}</span>
+        </div>
+      }
 
-        @if (inputEntries().length > 0) {
-          <div class="nga-inputs">
-            @for (entry of inputEntries(); track entry.key) {
-              <div class="nga-input-row">
-                <span class="nga-input-key">{{ entry.key }}:</span>
-                <span class="nga-input-val">{{ entry.value | json }}</span>
+      <!-- Annotate panel -->
+      @if (mode === 'annotate' && selectedContext !== null) {
+        <div class="nga-annotate-panel">
+          <h3 class="nga-panel-title">{{ selectedContext.componentName }}</h3>
+
+          @if (inputEntries().length > 0) {
+            <div class="nga-inputs">
+              @for (entry of inputEntries(); track entry.key) {
+                <div class="nga-input-row">
+                  <span class="nga-input-key">{{ entry.key }}:</span>
+                  <span class="nga-input-val">{{ entry.value | json }}</span>
+                </div>
+              }
+            </div>
+          }
+
+          @if (selectionText) {
+            <div class="nga-selection">
+              <em>"{{ selectionText }}"</em>
+            </div>
+          }
+
+          <textarea
+            #textArea
+            class="nga-textarea"
+            [(ngModel)]="annotationText"
+            placeholder="Describe the change..."
+            rows="4"
+            (keydown.shift.enter)="$event.preventDefault(); submit()"
+          ></textarea>
+
+          <div class="nga-actions">
+            <button class="nga-btn nga-btn-submit" (click)="submit()" [disabled]="annotationText.trim() === ''">
+              Submit <small style="opacity:0.7;font-size:11px">Shift+Enter</small>
+            </button>
+            <button class="nga-btn nga-btn-cancel" (click)="cancel()">Cancel</button>
+          </div>
+        </div>
+      }
+
+      <!-- Diff preview panel -->
+      @if (mode === 'preview' && diffAnnotation !== null) {
+        <div class="nga-preview-panel">
+          <h3 class="nga-panel-title">{{ diffAnnotation.componentName }}</h3>
+          <p class="nga-preview-subtitle">Review proposed changes — Apply or Reject:</p>
+
+          <div class="nga-diff">
+            @for (line of diffLines(); track $index) {
+              <span class="nga-diff-line nga-diff-line--{{ line.type }}">{{ line.text }}</span>
+            }
+          </div>
+
+          <div class="nga-actions">
+            <button class="nga-btn nga-btn-approve" (click)="approveDiff()">Apply</button>
+            <button class="nga-btn nga-btn-reject" (click)="rejectDiff()">Reject</button>
+            <button class="nga-btn nga-btn-cancel" (click)="closePreview()">Close</button>
+          </div>
+        </div>
+      }
+
+      <!-- Thread panel -->
+      @if (mode === 'thread' && threadAnnotation !== null) {
+        <div class="nga-thread-panel">
+          <h3 class="nga-panel-title">{{ threadAnnotation.componentName }}</h3>
+
+          <div class="nga-replies">
+            @for (reply of threadAnnotation.replies; track reply.message) {
+              <div class="nga-reply">
+                <span class="nga-reply-author nga-reply-author--{{ reply.author }}">{{ reply.author }}</span>
+                <span class="nga-reply-text">{{ reply.message }}</span>
               </div>
             }
           </div>
-        }
 
-        @if (selectionText) {
-          <div class="nga-selection">
-            <em>"{{ selectionText }}"</em>
+          <input
+            class="nga-reply-input"
+            type="text"
+            [(ngModel)]="replyText"
+            placeholder="Reply..."
+            (keydown.enter)="sendReply()"
+          />
+
+          <div class="nga-actions">
+            <button class="nga-btn nga-btn-submit" (click)="sendReply()" [disabled]="replyText.trim() === ''">
+              Send
+            </button>
+            <button class="nga-btn nga-btn-cancel" (click)="closeThread()">Close</button>
           </div>
-        }
-
-        <textarea
-          #textArea
-          class="nga-textarea"
-          [(ngModel)]="annotationText"
-          placeholder="Describe the change..."
-          rows="4"
-          (keydown.shift.enter)="$event.preventDefault(); submit()"
-        ></textarea>
-
-        <div class="nga-actions">
-          <button class="nga-btn nga-btn-submit" (click)="submit()" [disabled]="annotationText.trim() === ''">
-            Submit <small style="opacity:0.7;font-size:11px">Shift+Enter</small>
-          </button>
-          <button class="nga-btn nga-btn-cancel" (click)="cancel()">Cancel</button>
         </div>
-      </div>
-    }
+      }
 
-    <!-- Diff preview panel -->
-    @if (mode === 'preview' && diffAnnotation !== null) {
-      <div class="nga-preview-panel">
-        <h3 class="nga-panel-title">{{ diffAnnotation.componentName }}</h3>
-        <p class="nga-preview-subtitle">Review proposed changes — Apply or Reject:</p>
-
-        <div class="nga-diff">
-          @for (line of diffLines(); track $index) {
-            <span class="nga-diff-line nga-diff-line--{{ line.type }}">{{ line.text }}</span>
-          }
+      <!-- Annotation badges -->
+      @for (badge of badges; track badge.annotation.id) {
+        <div
+          class="nga-badge nga-badge--{{ badge.annotation.status }}"
+          [style.top]="badge.top"
+          [style.left]="badge.left"
+          (click)="openThread(badge.annotation)"
+          [title]="badge.label"
+        >
+          {{ badge.icon }}
         </div>
-
-        <div class="nga-actions">
-          <button class="nga-btn nga-btn-approve" (click)="approveDiff()">Apply</button>
-          <button class="nga-btn nga-btn-reject" (click)="rejectDiff()">Reject</button>
-          <button class="nga-btn nga-btn-cancel" (click)="closePreview()">Close</button>
-        </div>
-      </div>
-    }
-
-    <!-- Thread panel -->
-    @if (mode === 'thread' && threadAnnotation !== null) {
-      <div class="nga-thread-panel">
-        <h3 class="nga-panel-title">{{ threadAnnotation.componentName }}</h3>
-
-        <div class="nga-replies">
-          @for (reply of threadAnnotation.replies; track reply.message) {
-            <div class="nga-reply">
-              <span class="nga-reply-author nga-reply-author--{{ reply.author }}">{{ reply.author }}</span>
-              <span class="nga-reply-text">{{ reply.message }}</span>
-            </div>
-          }
-        </div>
-
-        <input
-          class="nga-reply-input"
-          type="text"
-          [(ngModel)]="replyText"
-          placeholder="Reply..."
-          (keydown.enter)="sendReply()"
-        />
-
-        <div class="nga-actions">
-          <button class="nga-btn nga-btn-submit" (click)="sendReply()" [disabled]="replyText.trim() === ''">
-            Send
-          </button>
-          <button class="nga-btn nga-btn-cancel" (click)="closeThread()">Close</button>
-        </div>
-      </div>
-    }
-
-    <!-- Annotation badges -->
-    @for (badge of badges; track badge.annotation.id) {
-      <div
-        class="nga-badge nga-badge--{{ badge.annotation.status }}"
-        [style.top]="badge.top"
-        [style.left]="badge.left"
-        (click)="openThread(badge.annotation)"
-        [title]="badge.label"
-      >
-        {{ badge.icon }}
-      </div>
+      }
     }
   `,
 })
@@ -299,11 +430,28 @@ export class OverlayComponent implements OnInit {
   diffAnnotation: Annotation | null = null;
   replyText = '';
   badges: AnnotationBadge[] = [];
+  overlayVisible = true;
+  showHelpModal = false;
+  agentLastSeen: string | null = null;
+
+  readonly mcpJsonExample = `{
+  "mcpServers": {
+    "ng-annotate": {
+      "command": "npx",
+      "args": ["--package=@ng-annotate/mcp", "ng-annotate-mcp"]
+    }
+  }
+}`;
 
   private readonly inspector = inject(InspectorService);
   private readonly bridge = inject(BridgeService);
   private readonly cdr = inject(ChangeDetectorRef);
   private badgeRetryTimer: ReturnType<typeof setTimeout> | null = null;
+
+  get agentConnected(): boolean {
+    if (!this.agentLastSeen) return false;
+    return Date.now() - new Date(this.agentLastSeen).getTime() < AGENT_HEARTBEAT_STALE_MS;
+  }
 
   ngOnInit(): void {
     this.bridge.session$.subscribe((session) => {
@@ -334,10 +482,39 @@ export class OverlayComponent implements OnInit {
 
       this.cdr.markForCheck();
     });
+
+    this.bridge.agentLastSeen$.subscribe((ts) => {
+      this.agentLastSeen = ts;
+      this.cdr.markForCheck();
+    });
   }
 
   toggleYolo(): void {
     this.bridge.toggleYoloMode();
+  }
+
+  openHelpModal(): void {
+    this.showHelpModal = true;
+    this.cdr.markForCheck();
+  }
+
+  closeHelpModal(): void {
+    this.showHelpModal = false;
+    this.cdr.markForCheck();
+  }
+
+  toggleOverlay(): void {
+    this.overlayVisible = !this.overlayVisible;
+    if (!this.overlayVisible) {
+      this.mode = 'hidden';
+    }
+    this.cdr.markForCheck();
+  }
+
+  @HostListener('document:keydown.alt.shift.h', ['$event'])
+  onToggleOverlay(event?: Event): void {
+    event?.preventDefault();
+    this.toggleOverlay();
   }
 
   @HostListener('document:keydown.alt.shift.x', ['$event'])
@@ -354,9 +531,16 @@ export class OverlayComponent implements OnInit {
   @HostListener('document:keydown.alt.shift.a', ['$event'])
   toggleInspect(event?: Event): void {
     event?.preventDefault();
-    if (this.mode === 'hidden') this.mode = 'inspect';
-    else if (this.mode === 'inspect') this.mode = 'hidden';
-    else if (this.mode === 'annotate') this.mode = 'inspect';
+    if (!this.overlayVisible) {
+      this.overlayVisible = true;
+      this.mode = 'inspect';
+    } else if (this.mode === 'hidden') {
+      this.mode = 'inspect';
+    } else if (this.mode === 'inspect') {
+      this.mode = 'hidden';
+    } else if (this.mode === 'annotate') {
+      this.mode = 'inspect';
+    }
     this.cdr.markForCheck();
   }
 

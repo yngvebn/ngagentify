@@ -46,6 +46,7 @@ export interface Annotation {
 interface StoreData {
   sessions: Record<string, Session | undefined>;
   annotations: Record<string, Annotation | undefined>;
+  lastAgentHeartbeat?: string;
 }
 
 const EMPTY_STORE: StoreData = { sessions: {}, annotations: {} };
@@ -234,6 +235,11 @@ export const store = {
       return data;
     });
     return deleted;
+  },
+
+  getHeartbeat(): string | undefined {
+    const data = readStore();
+    return data.lastAgentHeartbeat;
   },
 
   async clearAnnotations(sessionId: string): Promise<void> {

@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] — 2026-03-05
+
+### Added
+
+- **Idle inspect hint** — when the overlay is visible but not in inspect mode, a hint reading `Alt+Shift+A to inspect` is now shown in the bottom-right corner, making the shortcut discoverable.
+
+### Fixed
+
+- **Agent heartbeat** — MCP server tools (`acknowledge`, `resolve`, `dismiss`, `reply`, `propose_diff`, `watch_diff_response`, `watch_annotations`) now call `store.touchHeartbeat()` on every invocation, writing a `lastAgentHeartbeat` timestamp to `store.json`. `watch_diff_response` additionally refreshes the heartbeat every 20 s while waiting for developer input. The Angular builder, Vite plugin, and `BridgeService` all forward this timestamp to the browser via `annotations:sync`, and the overlay's `?` button turns green while the agent is actively watching. The Angular builder's store was previously missing `lastAgentHeartbeat` support entirely; added `getHeartbeat()` and `snapshot()` so the periodic sync reads heartbeat and annotations from the same file read.
+- **Alt+Shift+A ignored when overlay was hidden** — pressing the inspect shortcut while the overlay was hidden changed internal mode state but rendered nothing. Entering inspect mode now also makes the overlay visible.
+- **Stale mode state when hiding overlay** — hiding the overlay via Alt+Shift+H now resets mode to `'hidden'`, preventing leftover `'inspect'` or `'annotate'` state from lingering invisibly.
+
 ## [0.8.0] — 2026-03-03
 
 ### Added

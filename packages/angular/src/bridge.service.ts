@@ -5,7 +5,7 @@ import type { Session, Annotation } from './types';
 type BridgeMessage =
   | { type: 'session:created'; session: Session }
   | { type: 'session:updated'; session: Session }
-  | { type: 'annotations:sync'; annotations: Annotation[] }
+  | { type: 'annotations:sync'; annotations: Annotation[]; lastAgentHeartbeat?: string }
   | { type: 'annotation:created'; annotation: Annotation }
   | { type: 'manifest:update'; manifest: Record<string, unknown> }
   | { type: string };
@@ -17,6 +17,7 @@ export class BridgeService implements OnDestroy {
   readonly session$ = new BehaviorSubject<Session | null>(null);
   readonly annotations$ = new BehaviorSubject<Annotation[]>([]);
   readonly connected$ = new BehaviorSubject<boolean>(false);
+  readonly agentLastSeen$ = new BehaviorSubject<string | null>(null);
 
   private readonly zone = inject(NgZone);
   private ws: WebSocket | null = null;
@@ -50,9 +51,12 @@ export class BridgeService implements OnDestroy {
             localStorage.setItem(SESSION_STORAGE_KEY, session.id);
             this.session$.next(session);
           } else if (data.type === 'annotations:sync') {
-            const annotations = (data as Extract<BridgeMessage, { type: 'annotations:sync' }>).annotations;
+            const { annotations, lastAgentHeartbeat } = data as Extract<BridgeMessage, { type: 'annotations:sync' }>;
             console.debug('[nga] annotations:sync', annotations.length, 'annotations', annotations.map(a => `${a.selector}(${a.status})`));
             this.annotations$.next(annotations);
+            if (lastAgentHeartbeat !== undefined) {
+              this.agentLastSeen$.next(lastAgentHeartbeat);
+            }
           } else if (data.type === 'session:updated') {
             const session = (data as Extract<BridgeMessage, { type: 'session:updated' }>).session;
             this.session$.next(session);

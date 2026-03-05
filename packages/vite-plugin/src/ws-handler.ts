@@ -66,7 +66,7 @@ export function createWsHandler(server: ViteDevServer, getManifest: () => Record
         // Immediately sync existing annotations for restored sessions
         const annotations = await store.listAnnotations(sessionId);
         server.config.logger.info(`[ng-annotate] syncing ${annotations.length} annotations`);
-        safeSend(ws, { type: 'annotations:sync', annotations });
+        safeSend(ws, { type: 'annotations:sync', annotations, lastAgentHeartbeat: store.getHeartbeat() });
         sessionSockets.set(sessionId, ws);
       } catch (err) {
         server.config.logger.error(`[ng-annotate] Failed to create session: ${String(err)}`);
@@ -128,7 +128,7 @@ export function createWsHandler(server: ViteDevServer, getManifest: () => Record
       for (const [sessionId, ws] of sessionSockets) {
         if (ws.readyState !== WebSocket.OPEN) continue;
         const annotations = await store.listAnnotations(sessionId);
-        safeSend(ws, { type: 'annotations:sync', annotations });
+        safeSend(ws, { type: 'annotations:sync', annotations, lastAgentHeartbeat: store.getHeartbeat() });
       }
     })();
   }, SYNC_INTERVAL_MS);

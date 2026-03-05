@@ -136,6 +136,7 @@ export function registerTools(server: McpServer): void {
       },
     },
     async ({ id, message }) => {
+      await store.touchHeartbeat();
       const annotation = await store.getAnnotation(id);
       if (!annotation) return error(`Annotation not found: ${id}`);
       if (annotation.status === 'acknowledged')
@@ -162,6 +163,7 @@ export function registerTools(server: McpServer): void {
       },
     },
     async ({ id, summary }) => {
+      await store.touchHeartbeat();
       const annotation = await store.getAnnotation(id);
       if (!annotation) return error(`Annotation not found: ${id}`);
 
@@ -186,6 +188,7 @@ export function registerTools(server: McpServer): void {
       },
     },
     async ({ id, reason }) => {
+      await store.touchHeartbeat();
       if (!reason) return error('Reason is required for dismissal');
 
       const annotation = await store.getAnnotation(id);
@@ -210,6 +213,7 @@ export function registerTools(server: McpServer): void {
       },
     },
     async ({ id, message }) => {
+      await store.touchHeartbeat();
       const annotation = await store.getAnnotation(id);
       if (!annotation) return error(`Annotation not found: ${id}`);
 
@@ -232,6 +236,7 @@ export function registerTools(server: McpServer): void {
       },
     },
     async ({ id, diff }) => {
+      await store.touchHeartbeat();
       const annotation = await store.getAnnotation(id);
       if (!annotation) return error(`Annotation not found: ${id}`);
 
@@ -255,6 +260,7 @@ export function registerTools(server: McpServer): void {
       },
     },
     async ({ id, timeoutMs }) => {
+      await store.touchHeartbeat();
       const timeout = timeoutMs ?? 300_000;
 
       const existing = await store.getAnnotation(id);
@@ -279,13 +285,21 @@ export function registerTools(server: McpServer): void {
             if (annotation?.diffResponse) {
               clearInterval(interval);
               clearTimeout(timer);
+              clearInterval(heartbeatInterval);
               resolve({ status: annotation.diffResponse, annotation });
             }
           })();
         }, WATCH_POLL_INTERVAL_MS);
 
+        // Refresh heartbeat every 20s so the browser indicator stays green
+        // while the agent is waiting for the developer to approve/reject.
+        const heartbeatInterval = setInterval(() => {
+          void store.touchHeartbeat();
+        }, 20_000);
+
         const timer = setTimeout(() => {
           clearInterval(interval);
+          clearInterval(heartbeatInterval);
           resolve({ status: 'timeout' });
         }, timeout);
       });
@@ -309,6 +323,7 @@ export function registerTools(server: McpServer): void {
       },
     },
     async ({ sessionId, timeoutMs }) => {
+      await store.touchHeartbeat();
       const timeout = timeoutMs ?? DEFAULT_WATCH_TIMEOUT_MS;
 
       // Check immediately first
