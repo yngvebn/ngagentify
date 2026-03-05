@@ -7,8 +7,8 @@
     },
     "ng-annotate": {
       "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@ng-annotate/mcp-server"],
+      "command": "node",
+      "args": ["C:/github/ngagentify/packages/mcp-server/bin/ng-annotate-mcp.js"],
       "env": {
         "NG_ANNOTATE_PROJECT_ROOT": "C:/github/ngagentify/demo"
       }
