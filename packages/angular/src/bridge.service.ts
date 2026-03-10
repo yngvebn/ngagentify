@@ -1,6 +1,6 @@
 import { Injectable, NgZone, OnDestroy, inject } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
-import type { Session, Annotation } from './types';
+import type { Annotation, Session } from './types';
 
 type BridgeMessage =
   | { type: 'session:created'; session: Session }
@@ -31,11 +31,9 @@ export class BridgeService implements OnDestroy {
     const storedSessionId = localStorage.getItem(SESSION_STORAGE_KEY);
     const params = storedSessionId ? `?sessionId=${encodeURIComponent(storedSessionId)}` : '';
     const wsUrl = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/__annotate${params}`;
-    console.debug('[nga] connecting', storedSessionId ? `restoring session ${storedSessionId}` : 'new session');
     this.ws = new WebSocket(wsUrl);
 
     this.ws.onopen = () => {
-      console.debug('[nga] WebSocket opened');
       this.zone.run(() => {
         this.connected$.next(true);
       });
@@ -47,12 +45,10 @@ export class BridgeService implements OnDestroy {
           const data = JSON.parse(event.data) as BridgeMessage;
           if (data.type === 'session:created') {
             const session = (data as Extract<BridgeMessage, { type: 'session:created' }>).session;
-            console.debug('[nga] session:created', session.id);
             localStorage.setItem(SESSION_STORAGE_KEY, session.id);
             this.session$.next(session);
           } else if (data.type === 'annotations:sync') {
             const { annotations, lastAgentHeartbeat } = data as Extract<BridgeMessage, { type: 'annotations:sync' }>;
-            console.debug('[nga] annotations:sync', annotations.length, 'annotations', annotations.map(a => `${a.selector}(${a.status})`));
             this.annotations$.next(annotations);
             if (lastAgentHeartbeat !== undefined) {
               this.agentLastSeen$.next(lastAgentHeartbeat);

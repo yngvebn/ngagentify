@@ -1,18 +1,18 @@
-import {
-  Component,
-  ChangeDetectionStrategy,
-  ChangeDetectorRef,
-  HostListener,
-  OnInit,
-  ViewChild,
-  ElementRef,
-  inject,
-} from '@angular/core';
 import { JsonPipe } from '@angular/common';
+import {
+    ChangeDetectionStrategy,
+    ChangeDetectorRef,
+    Component,
+    ElementRef,
+    HostListener,
+    inject,
+    OnInit,
+    ViewChild,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { InspectorService } from '../inspector.service';
 import { BridgeService } from '../bridge.service';
-import type { Annotation, ComponentContext, AnnotationStatus, Session } from '../types';
+import { InspectorService } from '../inspector.service';
+import type { Annotation, AnnotationStatus, ComponentContext, Session } from '../types';
 
 type OverlayMode = 'hidden' | 'inspect' | 'annotate' | 'thread' | 'preview';
 
@@ -685,11 +685,9 @@ export class OverlayComponent implements OnInit {
   }
 
   private updateBadges(annotations: Annotation[]): void {
-    console.debug('[nga] updateBadges', annotations.length, 'annotations');
     const newBadges = annotations
       .map((annotation) => {
         const el = this.findComponentElement(annotation.componentName, annotation.selector);
-        console.debug('[nga]  ', annotation.selector, '->', el ? 'found' : 'NOT FOUND');
         if (!el) return null;
         const rect = el.getBoundingClientRect();
         return {
@@ -701,12 +699,10 @@ export class OverlayComponent implements OnInit {
         };
       })
       .filter((b): b is AnnotationBadge => b !== null);
-    console.debug('[nga] badges result:', newBadges.length);
     this.badges = newBadges;
 
     // If annotations exist but no elements were found yet (DOM not ready), retry shortly.
     if (annotations.length > 0 && newBadges.length === 0 && this.badgeRetryTimer === null) {
-      console.debug('[nga] scheduling retry in 300ms');
       this.badgeRetryTimer = setTimeout(() => {
         this.badgeRetryTimer = null;
         this.updateBadges(this.bridge.annotations$.getValue());
